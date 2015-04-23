@@ -17,18 +17,16 @@ To use hawkular-client-python in your own program, after installation import fro
 
 Timestamps should be in the milliseconds after epoch and numeric values should be float. The client provides a method to request current time in milliseconds, ``time_millis()``
 
-See metrics_test.py for more detailed examples.
+See metrics_test.py for more detailed examples. The tests target a running docker instance of Hawkular Kettle by default (change setUp() to override).
 
 ### General
 
 When a method wants a metric_type one can use the shortcuts of MetricType.Numeric or MetricType.Availability. For availability values, one can use Availability.Up and Availability.Down to simplify usage.
 
 ```python
->>> from hawkular import metrics
->>> client = metrics.HawkularMetricsClient(tenant_id='doc', port=8081)
+>>> from hawkular.metrics import *
+>>> client = HawkularMetricsClient(tenant_id='doc', port=8081)
 ```
-
-See metrics_test.py for more detailed examples.
 
 ### Creating and modifying metric definitions
 

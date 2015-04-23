@@ -8,9 +8,8 @@ TODO: Remember to do imports for Python 3 also and check the compatibility..
 TODO: Search datapoints with tags.. tag datapoints.
 TODO: Allow changing instance's tenant?
 TODO: Authentication when it's done..
-TODO: Remove HawkularMetricsConnectionError and use HawkularMetricsError only? HTTPError extends URLError..
-TODO: 0.3.3 will change /hawkular-metrics to hawkular/metrics ..
-TODO: 0.3.3 will also change lots of other small things on REST.
+TODO: Remove HawkularMetricsConnectionError and use HawkularMetricsError only?
+TODO: 0.3.3 will change /hawkular-metrics to hawkular/metrics and the REST-interfaces
 """
 
 class MetricType:
@@ -54,21 +53,23 @@ class HawkularMetricsClient:
     def __init__(self,
                  tenant_id,
                  host='localhost',
-                 port=8080):
+                 port=8081,
+                 path='hawkular-metrics'):
         """
         A new instance of HawkularMetricsClient is created with the following defaults:
 
         host = localhost
-        port = 8080
-        tenant_id = tenant_id
+        port = 8081
+        path = hawkular-metrics
 
-        The url that is called by default is:
+        The url that is called by the client is:
 
-        http://{host}:{port}/hawkular-metrics/
+        http://{host}:{port}/{2}/
         """
         self.tenant_id = tenant_id
         self.host = host
         self.port = port
+        self.path = path
 
         opener = urllib2.build_opener(HTTPErrorProcessor())
         urllib2.install_opener(opener)
@@ -81,7 +82,7 @@ class HawkularMetricsClient:
         return urllib.quote(metric_id, '')
 
     def _get_base_url(self):
-        return "http://{0}:{1}/hawkular-metrics/".format(self.host, str(self.port))
+        return "http://{0}:{1}/{2}/".format(self.host, str(self.port), self.path)
     
     def _get_url(self, service):
         return self._get_base_url() + '{0}/{1}'.format(self.tenant_id, service)
@@ -119,7 +120,6 @@ class HawkularMetricsClient:
             if method == 'GET':
                 if res.getcode() == 200:
                     data = json.load(res)
-                    # return data
                 elif res.getcode() == 204:
                     data = {}
 
@@ -158,7 +158,7 @@ class HawkularMetricsClient:
                 err_d = json.loads(err_json)
                 e.msg = err_d['errorMsg']
             except:
-                # We keep the original payload, couldn't parse it
+                # Keep the original payload, couldn't parse it
                 e.msg = err_json
 
             raise e
@@ -242,11 +242,6 @@ class HawkularMetricsClient:
         definition_url = self._get_url('metrics') + '?type=' + MetricType.short(query_type)
         return self._get(definition_url)
 
-    # def query_metric_definition(self, metric_type, metric_id):
-    #     # This is actually using the tags method because of weird behavior in HWKMETRICS
-    #     # TODO Fix this once Hawkular-Metrics is fixed.
-    #     pass
-    
     def create_metric_definition(self, metric_type, metric_id, **tags):
         """
         Create metric definition with custom definition. **options should be a set of tags, such as
@@ -284,42 +279,23 @@ class HawkularMetricsClient:
         """
         Returns a list of tags in the metric definition of metric_id
         """
-        # Slightly overlapping with query_definition, as that would return tags also.. 
-        # 200 ok, 204 ok, but nothing found
-        # @Path("/{tenantId}/metrics/numeric/{id}/tags")
         definition = self._get(self._get_metrics_tags_url(self._get_metrics_single_url(metric_type, metric_id)))
         return definition.get('tags', {})
 
     def update_metric_tags(self, metric_type, metric_id, **tags):
         """
-        Replace the metric_id's tags
+        Replace the metric_id's tags with given **tags
         """
-        # This will replace all the tags with PUT
         self._put(self._get_metrics_tags_url(self._get_metrics_single_url(metric_type, metric_id)), tags)
 
     def delete_metric_tags(self, metric_type, metric_id, **deleted_tags):
         """
-        Delete one or more tags from the metric definition. The tag values must match what's on the server.
+        Delete one or more tags from the metric definition. The tag values must match what's stored on the server.
         """
-        # 400 is tags are invalid
         tags = ','.join("%s:%s" % (key,val) for (key,val) in deleted_tags.iteritems())
         tags_url = self._get_metrics_tags_url(self._get_metrics_single_url(metric_type, metric_id)) + '/{0}'.format(tags)
 
-        self._delete(tags_url)
-
-    def query_data_with_tags(self, metric_type, **tags):
-        # 400 if invalid tags, 204 is nothing found
-        pass
-
-    # def change_datapoint_tags(self, metric_type, metric_id, timestamp=None, start=None, end=None, **tags):
-    #     # TagRequest model.. mm?
-    #     pass
-    
-
-    # def query_metric_definitions_with_tag(self, metric_type, **tags):
-    #     # The description in Metrics REST-API is confusing, which one is datapoints and which one definions? Fix.
-    #     pass
-    
+        self._delete(tags_url)    
         
     """
     Tenant related queries
@@ -351,12 +327,14 @@ class HawkularMetricsClient:
 Static methods
 """
 def time_millis():
+    """
+    Returns current milliseconds since epoch
+    """
     return int(round(time.time() * 1000))
 
-# This should datapoint dict actually..
 def create_datapoint(value, timestamp=None, **tags):
     """
-    Returns a single datapoint dict with a value, timestamp (optional - filled by the client if missing)
+    Creates a single datapoint dict with a value, timestamp (optional - filled by the method if missing)
     and tags (optional)
     """
     if timestamp is None:
@@ -370,11 +348,9 @@ def create_datapoint(value, timestamp=None, **tags):
 
     return item
 
-# This on the other hand is actually the metric ..
 def create_metric(metric_id, data):
     """
-    Create Hawkular-Metrics' submittable structure, metric_dict is a
-    dict created with create_datapoint(value, timestamp)
+    Create Hawkular-Metrics' submittable structure, data is a datapoint or list of datapoints
     """
     if not isinstance(data, list):
         data = [data]
