@@ -1,7 +1,5 @@
 import unittest
 import uuid
-# import metrics
-# from metrics import Availability, MetricType, HawkularMetricsError
 from metrics import *
 
 class TestMetricFunctionsBase(unittest.TestCase):
@@ -48,12 +46,15 @@ class MetricsTestCase(TestMetricFunctionsBase):
         Test creating numeric metric definitions with different tags and definition.
         """
         # Create numeric metrics with empty details and added details
-        self.client.create_numeric_definition('test.create.numeric.1')
-        self.client.create_numeric_definition('test.create.numeric.2', dataRetention=90)
-        self.client.create_numeric_definition('test.create.numeric.3', dataRetention=90, units='bytes', env='qa')
+        md1 = self.client.create_numeric_definition('test.create.numeric.1')
+        md2 = self.client.create_numeric_definition('test.create.numeric.2', dataRetention=90)
+        md3 = self.client.create_numeric_definition('test.create.numeric.3', dataRetention=90, units='bytes', env='qa')
+        self.assertTrue(md1)
+        self.assertTrue(md2)
+        self.assertTrue(md3)
 
         # Fetch metrics definition and check that the ones we created appeared also
-        m = self.client.query_definitions(MetricType.Numeric)
+        m = self.client.query_definitions(MetricType.Gauge)
         self.assertEqual(3, len(m))
         self.assertEqual(self.test_tenant, m[0]['tenantId'])
         self.assertEqual('bytes', m[2]['tags']['units'])
@@ -69,13 +70,8 @@ class MetricsTestCase(TestMetricFunctionsBase):
         self.assertEqual(m, expect) # Did it?
 
         # Lets try creating a duplicate metric
-        try:
-            self.client.create_numeric_definition('test.create.numeric.1')
-            self.fail('Should have received an exception, metric with the same name was already created')
-        except HawkularMetricsError, e:
-            # Check return code 400 and that the failure message was correctly parsed
-            self.assertEqual(409, e.code)
-            self.assertEqual('A metric with name [test.create.numeric.1] already exists', e.msg)
+        md4 = self.client.create_numeric_definition('test.create.numeric.1')
+        self.assertFalse(md4, 'Should have received an exception, metric with the same name was already created')
 
     def test_availability_creation(self):
         # Create availability metric
@@ -92,19 +88,19 @@ class MetricsTestCase(TestMetricFunctionsBase):
         m = 'test.create.tags.1'
         # Create metric without tags
         self.client.create_numeric_definition(m)
-        e = self.client.query_metric_tags(MetricType.Numeric, m)
+        e = self.client.query_metric_tags(MetricType.Gauge, m)
         self.assertIsNotNone(e)
         self.assertEqual({}, e)
         # Add tags
-        self.client.update_metric_tags(MetricType.Numeric, m, hostname='machine1', a='b')
+        self.client.update_metric_tags(MetricType.Gauge, m, hostname='machine1', a='b')
         # Fetch metric - check for tags
-        tags = self.client.query_metric_tags(MetricType.Numeric, m)
+        tags = self.client.query_metric_tags(MetricType.Gauge, m)
         self.assertEqual(2, len(tags))
         self.assertEqual("b", tags['a'])
         # Delete some metric tags
-        self.client.delete_metric_tags(MetricType.Numeric, m, a='b', hostname='machine1')
+        self.client.delete_metric_tags(MetricType.Gauge, m, a='b', hostname='machine1')
         # Fetch metric - check that tags were deleted
-        tags_2 = self.client.query_metric_tags(MetricType.Numeric, m)
+        tags_2 = self.client.query_metric_tags(MetricType.Gauge, m)
         self.assertEqual(0, len(tags_2))
 
     # def test_tags_behavior(self):
@@ -120,19 +116,18 @@ class MetricsTestCase(TestMetricFunctionsBase):
     #     print 'END: TEST TAGS'
     
     def test_add_numeric_single(self):
-
         # Normal way
         value = float(4.35)
         datapoint = create_datapoint(value, time_millis())
-        metric = create_metric('test.numeric./', datapoint)
-        self.client.put(MetricType.Numeric, metric)
+        metric = create_metric(MetricType.Gauge, 'test.numeric./', datapoint)
+        self.client.put(metric)
 
         # Fetch results
         data = self.client.query_single_numeric('test.numeric./')
         self.assertEqual(float(data[0]['value']), value)
 
         # Shortcut method with tags
-        self.client.push(MetricType.Numeric, 'test.numeric.single.tags', value, hostname='localhost')
+        self.client.push(MetricType.Gauge, 'test.numeric.single.tags', value, hostname='localhost')
 
         # Fetch results
         data = self.client.query_single_numeric('test.numeric.single.tags')
@@ -153,8 +148,8 @@ class MetricsTestCase(TestMetricFunctionsBase):
         metric_1v = create_datapoint(float(1.45))
         metric_2v = create_datapoint(float(2.00), (time_millis() - 2000))
 
-        metric = create_metric('test.numeric.multi', [metric_1v, metric_2v])
-        self.client.put(MetricType.Numeric, metric)
+        metric = create_metric(MetricType.Gauge, 'test.numeric.multi', [metric_1v, metric_2v])
+        self.client.put(metric)
         
         data = self.client.query_single_numeric('test.numeric.multi')
         self.assertEqual(len(data), 2)
@@ -162,32 +157,33 @@ class MetricsTestCase(TestMetricFunctionsBase):
         self.assertEqual(data[1]['value'], float(2.00))
 
     def test_add_availability_multi_datapoint(self):
-        up = create_datapoint('up', (time_millis() - 2000))
-        down = create_datapoint('down')
+        t = time_millis()
+        up = create_datapoint('up', (t - 2000))
+        down = create_datapoint('down', t)
 
-        m = create_metric('test.avail.multi', [up, down])
+        m = create_metric(MetricType.Availability, 'test.avail.multi', [up, down])
         
-        self.client.put(MetricType.Availability, m)
+        self.client.put(m)
         data = self.client.query_single_availability('test.avail.multi')
 
         self.assertEqual(len(data), 2)
-        self.assertEqual(data[0]['value'], 'down')
-        self.assertEqual(data[1]['value'], 'up')
+        self.assertEqual(data[0]['value'], 'up')
+        self.assertEqual(data[1]['value'], 'down')
 
-    def test_add_multi_metrics_and_datapoints(self):
+    def test_add_mixed_metrics_and_datapoints(self):
         metric1 = create_datapoint(float(1.45))
         metric1_2 = create_datapoint(float(2.00), (time_millis() - 2000))
 
-        metric_multi = create_metric('test.multi.numeric.1', [metric1, metric1_2])
+        metric_multi = create_metric(MetricType.Gauge, 'test.multi.numeric.1', [metric1, metric1_2])
 
-        metric2 = create_datapoint(float(1.55))
-        metric2_multi = create_metric('test.multi.numeric.2', [metric2])
+        metric2 = create_datapoint(Availability.Up)
+        metric2_multi = create_metric(MetricType.Availability,'test.multi.numeric.2', [metric2])
 
-        self.client.put(MetricType.Numeric, [metric_multi, metric2_multi])
+        self.client.put([metric_multi, metric2_multi])
 
         # Check that both were added correctly..
         metric1_data = self.client.query_single_numeric('test.multi.numeric.1')
-        metric2_data = self.client.query_single_numeric('test.multi.numeric.2')
+        metric2_data = self.client.query_single_availability('test.multi.numeric.2')
 
         self.assertEqual(2, len(metric1_data))
         self.assertEqual(1, len(metric2_data))
@@ -198,29 +194,29 @@ class MetricsTestCase(TestMetricFunctionsBase):
         v1 = create_datapoint(float(1.45), t)
         v2 = create_datapoint(float(2.00), (t - 2000))
 
-        m = create_metric('test.query.numeric.1', [v1, v2])
-        self.client.put(MetricType.Numeric, m)
+        m = create_metric(MetricType.Gauge, 'test.query.numeric.1', [v1, v2])
+        self.client.put(m)
 
         # Query first without limitations
-        d = self.client.query_metric(MetricType.Numeric, 'test.query.numeric.1')
+        d = self.client.query_metric(MetricType.Gauge, 'test.query.numeric.1')
         self.assertEqual(2, len(d))
 
         # Query for data which has start time limitation
-        d = self.client.query_metric(MetricType.Numeric, 'test.query.numeric.1', start=(t-1000))
+        d = self.client.query_metric(MetricType.Gauge, 'test.query.numeric.1', start=(t-1000))
         self.assertEqual(1, len(d))
 
     # This feature isn't really ready for prime time in Hawkular-Metrics yet.. 
     # def test_tags_finding(self):        
     #     # Create metrics with tags
     #     m = 'test.create.data.tags.1'
-    #     self.client.create_metric_definition(MetricType.Numeric, m, ab='cd')
+    #     self.client.create_metric_definition(MetricType.Gauge, m, ab='cd')
     #     # Push some data to them
     #     t = time_millis()
     #     v = float(1.4)
-    #     self.client.push(MetricType.Numeric, m, v, t)
+    #     self.client.push(MetricType.Gauge, m, v, t)
     #     # Fetch data with certain tags
     #     expected = { 'id': m, 'timestamp': t, 'value': v }
-    #     d = self.client.query_data_with_tags(MetricType.Numeric, ab='cd')
+    #     d = self.client.query_data_with_tags(MetricType.Gauge, ab='cd')
     #     self.assertIsNotNone(d)
     #     self.assertIn(expected, d)        
         

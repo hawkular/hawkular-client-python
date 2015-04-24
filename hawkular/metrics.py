@@ -2,6 +2,7 @@ import json
 import urllib2
 import urllib
 import time
+import collections
 
 """
 TODO: Remember to do imports for Python 3 also and check the compatibility..
@@ -9,23 +10,25 @@ TODO: Search datapoints with tags.. tag datapoints.
 TODO: Allow changing instance's tenant?
 TODO: Authentication when it's done..
 TODO: Remove HawkularMetricsConnectionError and use HawkularMetricsError only?
-TODO: 0.3.3 will change /hawkular-metrics to hawkular/metrics and the REST-interfaces
+TODO: 0.3.3 will before release move the tenantId to headers..
 """
 
 class MetricType:
-    Numeric = 'numeric'
+    Gauge = 'gauges'
     Availability = 'availability'
+    Counter = 'counters'
 
     @staticmethod
     def short(metric_type):
-        if metric_type is 'numeric':
-            return 'num'
+        if metric_type is MetricType.Gauge:
+            return 'gauge'
         else:
-            return 'avail'
+            return 'availability'
 
 class Availability:
     Down = 'down'
     Up = 'up'
+    Unknown = 'unknown'
 
 class HawkularMetricsError(urllib2.HTTPError):
     pass
@@ -53,8 +56,8 @@ class HawkularMetricsClient:
     def __init__(self,
                  tenant_id,
                  host='localhost',
-                 port=8081,
-                 path='hawkular-metrics'):
+                 port=8080,
+                 path='hawkular/metrics'):
         """
         A new instance of HawkularMetricsClient is created with the following defaults:
 
@@ -84,14 +87,11 @@ class HawkularMetricsClient:
     def _get_base_url(self):
         return "http://{0}:{1}/{2}/".format(self.host, str(self.port), self.path)
     
-    def _get_url(self, service):
-        return self._get_base_url() + '{0}/{1}'.format(self.tenant_id, service)
-
-    def _get_metrics_url(self, metric_type):
-        return self._get_url('metrics') + "/{0}".format(metric_type)
+    def _get_url(self, metric_type):
+        return self._get_base_url() + '{0}/{1}'.format(self.tenant_id, metric_type)
 
     def _get_metrics_single_url(self, metric_type, metric_id):
-        return self._get_metrics_url(metric_type) + '/{0}'.format(self._clean_metric_id(metric_id))
+        return self._get_url(metric_type) + '/{0}'.format(self._clean_metric_id(metric_id))
     
     def _get_metrics_data_url(self, metrics_url):
         return metrics_url + '/data'
@@ -185,17 +185,27 @@ class HawkularMetricsClient:
     Instance methods
     """
     
-    def put(self, metric_type, data):
+    def put(self, data):
         """
-        Send multiple different metric_ids to the server in a single
-        batch.
+        Send multiple different metric_ids to the server in a single batch. Metrics can be a mixture
+        of types.
 
-        data is a dict or a list of dicts created with create_metric(metric_id, metric_dict)
+        data is a dict or a list of dicts created with create_metric(metric_type, metric_id, datapoints)
         """
         if not isinstance(data, list):
             data = [data]
-            
-        self._post(self._get_metrics_data_url(self._get_metrics_url(metric_type)), data)
+
+        r = collections.defaultdict(list)
+
+        for d in data:
+            metric_type = d.pop('type', None)
+            if metric_type is None:
+                raise HawkularMetricsError('Undefined MetricType')
+            r[metric_type].append(d)
+
+        # This isn't transactional, but .. ouh well. One can always repost everything.
+        for l in r:
+            self._post(self._get_metrics_data_url(self._get_url(l)), r[l])
 
     def push(self, metric_type, metric_id, value, timestamp=None, **tags):
         """
@@ -204,8 +214,8 @@ class HawkularMetricsClient:
         This method is an assistant method for the put method by removing the need to
         create data structures first.
         """
-        item = create_metric(metric_id, create_datapoint(value, timestamp, **tags))
-        self.put(metric_type, item)
+        item = create_metric(metric_type, metric_id, create_datapoint(value, timestamp, **tags))
+        self.put(item)
 
     def query_metric(self, metric_type, metric_id, **search_options):
         """
@@ -224,7 +234,7 @@ class HawkularMetricsClient:
         """
         See query_metric
         """
-        return self.query_metric(MetricType.Numeric, metric_id, **search_options)
+        return self.query_metric(MetricType.Gauge, metric_id, **search_options)
 
     def query_single_availability(self, metric_id, **search_options):
         """
@@ -234,12 +244,12 @@ class HawkularMetricsClient:
     
     def query_definitions(self, query_type):
         """
-        Query available metric definitions. Use 'avail' or 'num' or MetricType.Availability / MetricType.Numeric
+        Query available metric definitions. 
         """
-        if isinstance(query_type, MetricType):
-            query_type = MetricType.short(query_type)
+        # if isinstance(query_type, MetricType):
+        #     query_type = MetricType.short(query_type)
             
-        definition_url = self._get_url('metrics') + '?type=' + MetricType.short(query_type)
+        definition_url = self._get_url('metrics') + '?type=' + query_type
         return self._get(definition_url)
 
     def create_metric_definition(self, metric_type, metric_id, **tags):
@@ -248,7 +258,7 @@ class HawkularMetricsClient:
         units, env ..
 
         Use methods create_numeric_definition and create_availability_definition to avoid using
-        MetricType.Numeric / MetricType.Availability
+        MetricType.Gauge / MetricType.Availability
         """
         item = { 'id': metric_id }
         if len(tags) > 0:
@@ -261,19 +271,26 @@ class HawkularMetricsClient:
                 item['tags'] = tags
 
         json_data = json.dumps(item, indent=2)
-        self._post(self._get_metrics_url(metric_type), json_data)
+        try:
+            self._post(self._get_url(metric_type), json_data)
+        except HawkularMetricsError as e:
+            if e.code == 409:
+                return False
+            raise e
+
+        return True
 
     def create_numeric_definition(self, metric_id, **tags):
         """
         See create_metric_definition
         """
-        self.create_metric_definition(MetricType.Numeric, metric_id, **tags)
+        return self.create_metric_definition(MetricType.Gauge, metric_id, **tags)
 
     def create_availability_definition(self, metric_id, **tags):
         """
         See create_metric_definition
         """
-        self.create_metric_definition(MetricType.Availability, metric_id, **tags)
+        return self.create_metric_definition(MetricType.Availability, metric_id, **tags)
         
     def query_metric_tags(self, metric_type, metric_id):
         """
@@ -348,12 +365,12 @@ def create_datapoint(value, timestamp=None, **tags):
 
     return item
 
-def create_metric(metric_id, data):
+def create_metric(metric_type, metric_id, data):
     """
     Create Hawkular-Metrics' submittable structure, data is a datapoint or list of datapoints
     """
     if not isinstance(data, list):
         data = [data]
     
-    return { 'id': metric_id, 'data': data }
+    return { 'type': metric_type,'id': metric_id, 'data': data }
         
