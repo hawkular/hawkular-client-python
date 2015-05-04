@@ -6,7 +6,7 @@ class TestMetricFunctionsBase(unittest.TestCase):
 
     def setUp(self):
         self.test_tenant = str(uuid.uuid4())
-        self.client = HawkularMetricsClient(tenant_id=self.test_tenant, port=8081)
+        self.client = HawkularMetricsClient(tenant_id=self.test_tenant, port=8080)
         
 class TenantTestCase(TestMetricFunctionsBase):
     """

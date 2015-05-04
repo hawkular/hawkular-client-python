@@ -10,7 +10,6 @@ TODO: Search datapoints with tags.. tag datapoints.
 TODO: Allow changing instance's tenant?
 TODO: Authentication when it's done..
 TODO: Remove HawkularMetricsConnectionError and use HawkularMetricsError only?
-TODO: 0.3.3 will before release move the tenantId to headers..
 """
 
 class MetricType:
@@ -88,7 +87,7 @@ class HawkularMetricsClient:
         return "http://{0}:{1}/{2}/".format(self.host, str(self.port), self.path)
     
     def _get_url(self, metric_type):
-        return self._get_base_url() + '{0}/{1}'.format(self.tenant_id, metric_type)
+        return self._get_base_url() + '{0}'.format(metric_type)
 
     def _get_metrics_single_url(self, metric_type, metric_id):
         return self._get_url(metric_type) + '/{0}'.format(self._clean_metric_id(metric_id))
@@ -108,6 +107,7 @@ class HawkularMetricsClient:
         try:
             req = urllib2.Request(url=url)
             req.add_header('Content-Type', 'application/json')
+            req.add_header('tenantId', self.tenant_id)
 
             if not isinstance(data, str):
                 data = json.dumps(data, indent=2)
@@ -246,10 +246,7 @@ class HawkularMetricsClient:
         """
         Query available metric definitions. 
         """
-        # if isinstance(query_type, MetricType):
-        #     query_type = MetricType.short(query_type)
-            
-        definition_url = self._get_url('metrics') + '?type=' + query_type
+        definition_url = self._get_url('metrics') + '?type=' + MetricType.short(query_type)
         return self._get(definition_url)
 
     def create_metric_definition(self, metric_type, metric_id, **tags):
