@@ -10,6 +10,7 @@ TODO: Search datapoints with tags.. tag datapoints.
 TODO: Allow changing instance's tenant?
 TODO: Authentication when it's done..
 TODO: Remove HawkularMetricsConnectionError and use HawkularMetricsError only?
+TODO: HWKMETRICS-110 (fetching a single definition)
 """
 
 class MetricType:
@@ -107,7 +108,7 @@ class HawkularMetricsClient:
         try:
             req = urllib2.Request(url=url)
             req.add_header('Content-Type', 'application/json')
-            req.add_header('tenantId', self.tenant_id)
+            req.add_header('Hawkular-Tenant', self.tenant_id)
 
             if not isinstance(data, str):
                 data = json.dumps(data, indent=2)
@@ -145,7 +146,7 @@ class HawkularMetricsClient:
         params = urllib.urlencode(url_params)
         if len(params) > 0:
             url = '{0}?{1}'.format(url, params)
-            
+
         return self._http(url, 'GET')        
         
     def _handle_error(self, e):
@@ -223,14 +224,14 @@ class HawkularMetricsClient:
 
         Supported search options are [optional]: start, end and buckets
 
-        Use methods query_single_numeric and query_single_availability for simple access
+        Use methods query_single_gauge and query_single_availability for simple access
         """
         return self._get(
             self._get_metrics_data_url(
                 self._get_metrics_single_url(metric_type, metric_id)),
             **search_options)
 
-    def query_single_numeric(self, metric_id, **search_options):
+    def query_single_gauge(self, metric_id, **search_options):
         """
         See query_metric
         """
@@ -254,7 +255,7 @@ class HawkularMetricsClient:
         Create metric definition with custom definition. **options should be a set of tags, such as
         units, env ..
 
-        Use methods create_numeric_definition and create_availability_definition to avoid using
+        Use methods create_gauge_definition and create_availability_definition to avoid using
         MetricType.Gauge / MetricType.Availability
         """
         item = { 'id': metric_id }
@@ -277,7 +278,7 @@ class HawkularMetricsClient:
 
         return True
 
-    def create_numeric_definition(self, metric_id, **tags):
+    def create_gauge_definition(self, metric_id, **tags):
         """
         See create_metric_definition
         """
@@ -294,7 +295,8 @@ class HawkularMetricsClient:
         Returns a list of tags in the metric definition of metric_id
         """
         definition = self._get(self._get_metrics_tags_url(self._get_metrics_single_url(metric_type, metric_id)))
-        return definition.get('tags', {})
+        return definition
+        # return definition.get('tags', {})
 
     def update_metric_tags(self, metric_type, metric_id, **tags):
         """
