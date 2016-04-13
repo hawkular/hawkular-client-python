@@ -5,7 +5,8 @@ from metrics import *
 class TestMetricFunctionsBase(unittest.TestCase):
 
     def setUp(self):
-        self.test_tenant = str(uuid.uuid4())
+        self.maxDiff = None
+        self.test_tenant = unicode(str(uuid.uuid4()))
         self.client = HawkularMetricsClient(tenant_id=self.test_tenant, port=8080)
         
 class TenantTestCase(TestMetricFunctionsBase):
@@ -15,7 +16,7 @@ class TenantTestCase(TestMetricFunctionsBase):
     """
     
     def test_tenant_creation(self):
-        tenant = str(uuid.uuid4())
+        tenant = unicode(str(uuid.uuid4()))
         self.client.create_tenant(tenant)
         tenants = self.client.query_tenants()
 
@@ -61,11 +62,11 @@ class MetricsTestCase(TestMetricFunctionsBase):
 
         # This is what the returned dict should look like
         expect = [
-            {'id': 'test.create.gauge.1',
-             'tenantId': self.test_tenant },
-            {'dataRetention': 90, 'id': 'test.create.gauge.2', 'tenantId': self.test_tenant},
-            {'tags': {'units': 'bytes', 'env': 'qa'},
-             'id': 'test.create.gauge.3', 'dataRetention': 90, 'tenantId': self.test_tenant}]
+            { u'dataRetention': 7, u'type': u'gauge', u'id': u'test.create.gauge.1',
+             u'tenantId': self.test_tenant },
+            {u'dataRetention': 90, u'type': u'gauge', u'id': u'test.create.gauge.2', u'tenantId': self.test_tenant},
+            {u'tags': {u'units': u'bytes', u'env': u'qa'},
+             u'id': u'test.create.gauge.3', u'dataRetention': 90, u'type': u'gauge', u'tenantId': self.test_tenant}]
 
         self.assertEqual(m, expect) # Did it?
 
@@ -167,8 +168,8 @@ class MetricsTestCase(TestMetricFunctionsBase):
         data = self.client.query_single_availability('test.avail.multi')
 
         self.assertEqual(len(data), 2)
-        self.assertEqual(data[0]['value'], 'up')
-        self.assertEqual(data[1]['value'], 'down')
+        self.assertEqual(data[0]['value'], 'down')
+        self.assertEqual(data[1]['value'], 'up')
 
     def test_add_mixed_metrics_and_datapoints(self):
         metric1 = create_datapoint(float(1.45))
