@@ -17,6 +17,7 @@ class MetricType:
     Gauge = 'gauges'
     Availability = 'availability'
     Counter = 'counters'
+    Rate = 'rate'
 
     @staticmethod
     def short(metric_type):
@@ -92,9 +93,12 @@ class HawkularMetricsClient:
 
     def _get_metrics_single_url(self, metric_type, metric_id):
         return self._get_url(metric_type) + '/{0}'.format(self._clean_metric_id(metric_id))
-    
-    def _get_metrics_data_url(self, metrics_url):
-        return metrics_url + '/data'
+
+    def _get_metrics_raw_url(self, metrics_url):
+        return metrics_url + '/raw'
+
+    def _get_metrics_stats_url(self, metrics_url):
+        return metrics_url + '/stats'
 
     def _get_metrics_tags_url(self, metrics_url):
         return metrics_url + '/tags'
@@ -206,7 +210,7 @@ class HawkularMetricsClient:
 
         # This isn't transactional, but .. ouh well. One can always repost everything.
         for l in r:
-            self._post(self._get_metrics_data_url(self._get_url(l)), r[l])
+            self._post(self._get_metrics_raw_url(self._get_url(l)), r[l])
 
     def push(self, metric_type, metric_id, value, timestamp=None, **tags):
         """
@@ -222,12 +226,12 @@ class HawkularMetricsClient:
         """
         Query for metrics from the server. 
 
-        Supported search options are [optional]: start, end and buckets
+        Supported search options are [optional]: start, end
 
         Use methods query_single_gauge and query_single_availability for simple access
         """
         return self._get(
-            self._get_metrics_data_url(
+            self._get_metrics_raw_url(
                 self._get_metrics_single_url(metric_type, metric_id)),
             **search_options)
 
