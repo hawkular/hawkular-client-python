@@ -1,3 +1,19 @@
+"""
+   Copyright 2015-2016 Red Hat, Inc. and/or its affiliates
+   and other contributors.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+"""
 from __future__ import unicode_literals
 
 import codecs
@@ -240,7 +256,7 @@ class HawkularMetricsClient:
         item = create_metric(metric_type, metric_id, create_datapoint(value, timestamp, **tags))
         self.put(item)
 
-    def query_metric(self, metric_type, metric_id, **search_options):
+    def query_metrics(self, metric_type, metric_id, **search_options):
         """
         Query for metrics from the server. 
 
@@ -257,13 +273,13 @@ class HawkularMetricsClient:
         """
         See query_metric
         """
-        return self.query_metric(MetricType.Gauge, metric_id, **search_options)
+        return self.query_metrics(MetricType.Gauge, metric_id, **search_options)
 
     def query_single_availability(self, metric_id, **search_options):
         """
         See query_metric
         """
-        return self.query_metric(MetricType.Availability, metric_id, **search_options)
+        return self.query_metrics(MetricType.Availability, metric_id, **search_options)
     
     def query_definitions(self, query_type):
         """
