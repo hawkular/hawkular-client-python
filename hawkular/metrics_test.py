@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import unittest
 import uuid
 from metrics import *
@@ -6,7 +8,7 @@ class TestMetricFunctionsBase(unittest.TestCase):
 
     def setUp(self):
         self.maxDiff = None
-        self.test_tenant = unicode(str(uuid.uuid4()))
+        self.test_tenant = str(uuid.uuid4())
         self.client = HawkularMetricsClient(tenant_id=self.test_tenant, port=8080)
         
 class TenantTestCase(TestMetricFunctionsBase):
@@ -16,7 +18,7 @@ class TenantTestCase(TestMetricFunctionsBase):
     """
     
     def test_tenant_creation(self):
-        tenant = unicode(str(uuid.uuid4()))
+        tenant = str(uuid.uuid4())
         self.client.create_tenant(tenant)
         tenants = self.client.query_tenants()
 
@@ -62,11 +64,11 @@ class MetricsTestCase(TestMetricFunctionsBase):
 
         # This is what the returned dict should look like
         expect = [
-            { u'dataRetention': 7, u'type': u'gauge', u'id': u'test.create.gauge.1',
-             u'tenantId': self.test_tenant },
-            {u'dataRetention': 90, u'type': u'gauge', u'id': u'test.create.gauge.2', u'tenantId': self.test_tenant},
-            {u'tags': {u'units': u'bytes', u'env': u'qa'},
-             u'id': u'test.create.gauge.3', u'dataRetention': 90, u'type': u'gauge', u'tenantId': self.test_tenant}]
+            { 'dataRetention': 7, 'type': 'gauge', 'id': 'test.create.gauge.1',
+             'tenantId': self.test_tenant },
+            {'dataRetention': 90, 'type': 'gauge', 'id': 'test.create.gauge.2', 'tenantId': self.test_tenant},
+            {'tags': {'units': 'bytes', 'env': 'qa'},
+             'id': 'test.create.gauge.3', 'dataRetention': 90, 'type': 'gauge', 'tenantId': self.test_tenant}]
 
         self.assertEqual(m, expect) # Did it?
 

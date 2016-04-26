@@ -1,16 +1,27 @@
+from __future__ import unicode_literals
+
+import codecs
 import json
-import urllib2
-import urllib
 import time
 import collections
 
+try:
+    # Python 3
+    from urllib.request import Request, urlopen, build_opener, install_opener, HTTPErrorProcessor
+    from urllib.error import HTTPError, URLError
+    from urllib.parse import quote, urlencode
+except ImportError:
+    # Fall back to Python 2's urllib2
+    from urllib2 import Request, urlopen, URLError, HTTPError, HTTPErrorProcessor, build_opener, install_opener
+    from urllib import quote, urlencode
+
 """
-TODO: Remember to do imports for Python 3 also and check the compatibility..
 TODO: Search datapoints with tags.. tag datapoints.
 TODO: Allow changing instance's tenant?
 TODO: Authentication when it's done..
 TODO: Remove HawkularMetricsConnectionError and use HawkularMetricsError only?
 TODO: HWKMETRICS-110 (fetching a single definition)
+TODO: Tag queries, stats queries
 """
 
 class MetricType:
@@ -31,13 +42,13 @@ class Availability:
     Up = 'up'
     Unknown = 'unknown'
 
-class HawkularMetricsError(urllib2.HTTPError):
+class HawkularMetricsError(HTTPError):
     pass
         
-class HawkularMetricsConnectionError(urllib2.URLError):
+class HawkularMetricsConnectionError(URLError):
     pass
 
-class HTTPErrorProcessor(urllib2.HTTPErrorProcessor):
+class HawkularHTTPErrorProcessor(HTTPErrorProcessor):
     """
     Hawkular-Metrics uses http codes 201, 204
     """
@@ -45,7 +56,7 @@ class HTTPErrorProcessor(urllib2.HTTPErrorProcessor):
 
         if response.code in [200, 201, 204]:
             return response
-        return urllib2.HTTPErrorProcessor.http_response(self, request, response)
+        return HTTPErrorProcessor.http_response(self, request, response)
   
     https_response = http_response
 
@@ -75,15 +86,15 @@ class HawkularMetricsClient:
         self.port = port
         self.path = path
 
-        opener = urllib2.build_opener(HTTPErrorProcessor())
-        urllib2.install_opener(opener)
+        opener = build_opener(HawkularHTTPErrorProcessor())
+        install_opener(opener)
 
     """
     Internal methods
     """
     @staticmethod
     def _clean_metric_id(metric_id):
-        return urllib.quote(metric_id, '')
+        return quote(metric_id, '')
 
     def _get_base_url(self):
         return "http://{0}:{1}/{2}/".format(self.host, str(self.port), self.path)
@@ -110,21 +121,28 @@ class HawkularMetricsClient:
         res = None
 
         try:
-            req = urllib2.Request(url=url)
+            req = Request(url=url)
             req.add_header('Content-Type', 'application/json')
             req.add_header('Hawkular-Tenant', self.tenant_id)
 
             if not isinstance(data, str):
                 data = json.dumps(data, indent=2)
 
-            if data:
-                req.add_data(data)
+            # writer = codecs.getencoder('utf-8')
+            reader = codecs.getreader('utf-8')
 
-            req.get_method = lambda: method    
-            res = urllib2.urlopen(req)
+            if data:
+                try:
+                    req.add_data(data)
+                except AttributeError:
+                    req.data = data.encode('utf-8')
+
+            req.get_method = lambda: method
+            res = urlopen(req)
             if method == 'GET':
                 if res.getcode() == 200:
-                    data = json.load(res)
+                    data = json.load(reader(res))
+
                 elif res.getcode() == 204:
                     data = {}
 
@@ -147,14 +165,14 @@ class HawkularMetricsClient:
         self._http(url, 'POST', data)
 
     def _get(self, url, **url_params):
-        params = urllib.urlencode(url_params)
+        params = urlencode(url_params)
         if len(params) > 0:
             url = '{0}?{1}'.format(url, params)
 
         return self._http(url, 'GET')        
         
     def _handle_error(self, e):
-        if isinstance(e, urllib2.HTTPError):
+        if isinstance(e, HTTPError):
             # Cast to HawkularMetricsError
             e.__class__ = HawkularMetricsError
             err_json = e.read()
@@ -167,7 +185,7 @@ class HawkularMetricsClient:
                 e.msg = err_json
 
             raise e
-        elif isinstance(e, urllib2.URLError):
+        elif isinstance(e, URLError):
             # Cast to HawkularMetricsConnectionError
             e.__class__ = HawkularMetricsConnectionError
             e.msg = "Error, could not send event(s) to the Hawkular Metrics: " + str(e.reason)
@@ -312,7 +330,7 @@ class HawkularMetricsClient:
         """
         Delete one or more tags from the metric definition. The tag values must match what's stored on the server.
         """
-        tags = ','.join("%s:%s" % (key,val) for (key,val) in deleted_tags.iteritems())
+        tags = ','.join("%s:%s" % (key,val) for (key,val) in deleted_tags.items())
         tags_url = self._get_metrics_tags_url(self._get_metrics_single_url(metric_type, metric_id)) + '/{0}'.format(tags)
 
         self._delete(tags_url)    
@@ -333,12 +351,6 @@ class HawkularMetricsClient:
         version of Hawkular-Metrics has fixed implementation.
         """        
         item = { 'id': tenant_id }
-
-        # if retention_time is not None:
-        #     item['dataRetention'] = retention_time
-
-        # if len(tags) > 0:
-        #     item.extend(tags)
 
         tenants_url = self._get_tenants_url()
         self._post(tenants_url, json.dumps(item, indent=2))
