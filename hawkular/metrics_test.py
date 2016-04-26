@@ -217,11 +217,11 @@ class MetricsTestCase(TestMetricFunctionsBase):
         self.client.put(m)
 
         # Query first without limitations
-        d = self.client.query_metrics(MetricType.Gauge, 'test.query.gauge.1')
+        d = self.client.query_metric(MetricType.Gauge, 'test.query.gauge.1')
         self.assertEqual(2, len(d))
 
         # Query for data which has start time limitation
-        d = self.client.query_metrics(MetricType.Gauge, 'test.query.gauge.1', start=(t-1000))
+        d = self.client.query_metric(MetricType.Gauge, 'test.query.gauge.1', start=(t-1000))
         self.assertEqual(1, len(d))
 
     # This feature isn't really ready for prime time in Hawkular-Metrics yet.. 

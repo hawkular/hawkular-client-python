@@ -256,7 +256,7 @@ class HawkularMetricsClient:
         item = create_metric(metric_type, metric_id, create_datapoint(value, timestamp, **tags))
         self.put(item)
 
-    def query_metrics(self, metric_type, metric_id, **search_options):
+    def query_metric(self, metric_type, metric_id, **search_options):
         """
         Query for metrics from the server. 
 
@@ -273,13 +273,13 @@ class HawkularMetricsClient:
         """
         See query_metric
         """
-        return self.query_metrics(MetricType.Gauge, metric_id, **search_options)
+        return self.query_metric(MetricType.Gauge, metric_id, **search_options)
 
     def query_single_availability(self, metric_id, **search_options):
         """
         See query_metric
         """
-        return self.query_metrics(MetricType.Availability, metric_id, **search_options)
+        return self.query_metric(MetricType.Availability, metric_id, **search_options)
     
     def query_definitions(self, query_type):
         """
