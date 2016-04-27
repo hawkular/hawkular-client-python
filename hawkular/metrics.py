@@ -34,10 +34,10 @@ except ImportError:
 """
 TODO: Search datapoints with tags.. tag datapoints.
 TODO: Allow changing instance's tenant?
-TODO: Authentication when it's done..
+TODO: Authentication
 TODO: Remove HawkularMetricsConnectionError and use HawkularMetricsError only?
 TODO: HWKMETRICS-110 (fetching a single definition)
-TODO: Tag queries, stats queries
+TODO: Stats queries
 """
 
 class MetricType:
@@ -50,6 +50,8 @@ class MetricType:
     def short(metric_type):
         if metric_type is MetricType.Gauge:
             return 'gauge'
+        elif metric_type is MetricType.Counter:
+            return 'counter'
         else:
             return 'availability'
 
@@ -132,6 +134,10 @@ class HawkularMetricsClient:
 
     def _get_tenants_url(self):
         return self._get_base_url() + 'tenants'
+
+    @staticmethod
+    def _transform_tags(**tags):
+        return ','.join("%s:%s" % (key,val) for (key,val) in tags.items())
     
     def _http(self, url, method, data=None):
         res = None
@@ -281,16 +287,38 @@ class HawkularMetricsClient:
         """
         return self.query_metric(MetricType.Availability, metric_id, **search_options)
     
-    def query_definitions(self, query_type):
+    def query_definitions(self, metric_type=None, id_filter=None, **tags):
         """
-        Query available metric definitions. 
+        Query available metric definitions. Available query options are id_filter for id filtering and tags (dict) as tag based query.
+        Tags filtering is required for the id filtering to work.
         """
-        definition_url = self._get_url('metrics') + '?type=' + MetricType.short(query_type)
-        return self._get(definition_url)
+        if id is not None and tags is None:
+            raise HawkularMetricsError('Tags query is required when id filter is used')
+
+        params = {}
+
+        if metric_type is not None:
+            params = { 'type': MetricType.short(metric_type) }
+
+        if len(tags) > 0:
+            params['tags'] = self._transform_tags(**tags)
+
+        return self._get(self._get_url('metrics'), **params)
+
+    def query_tagvalues(self, metric_type=None, **tags):
+        """
+        Query for possible tag values.
+        """
+        tagql = self._transform_tags(**tags)
+
+        if metric_type is None:
+            metric_type = 'metrics'
+
+        return self._get(self._get_metrics_tags_url(self._get_url(metric_type)) + '/{}'.format(tagql))
 
     def create_metric_definition(self, metric_type, metric_id, **tags):
         """
-        Create metric definition with custom definition. **options should be a set of tags, such as
+        Create metric definition with custom definition. **tags should be a set of tags, such as
         units, env ..
 
         Use methods create_gauge_definition and create_availability_definition to avoid using
@@ -334,7 +362,6 @@ class HawkularMetricsClient:
         """
         definition = self._get(self._get_metrics_tags_url(self._get_metrics_single_url(metric_type, metric_id)))
         return definition
-        # return definition.get('tags', {})
 
     def update_metric_tags(self, metric_type, metric_id, **tags):
         """
@@ -346,7 +373,7 @@ class HawkularMetricsClient:
         """
         Delete one or more tags from the metric definition. The tag values must match what's stored on the server.
         """
-        tags = ','.join("%s:%s" % (key,val) for (key,val) in deleted_tags.items())
+        tags = self._transform_tags(**deleted_tags)
         tags_url = self._get_metrics_tags_url(self._get_metrics_single_url(metric_type, metric_id)) + '/{0}'.format(tags)
 
         self._delete(tags_url)    

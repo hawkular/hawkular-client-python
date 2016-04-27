@@ -42,14 +42,7 @@ class TenantTestCase(TestMetricFunctionsBase):
         self.assertIn(expect, tenants)
 
     def test_tenant_creation_with_retentions_and_aggregations(self):
-        # This feature isn't finished in the current master version of Hawkular-Metrics
         pass
-        # tenant = str(uuid.uuid4())
-        # self.client.create_tenant(tenant, 40)
-        # tenants = self.client.query_tenants()
-
-        # expect = { 'id': tenant, 'dataRetention': 40 }
-        # self.assertIn(expect, tenants)
         
 class MetricsTestCase(TestMetricFunctionsBase):
     """
@@ -122,18 +115,18 @@ class MetricsTestCase(TestMetricFunctionsBase):
         tags_2 = self.client.query_metric_tags(MetricType.Gauge, m)
         self.assertEqual(0, len(tags_2))
 
-    # def test_tags_behavior(self):
-    #     print 'START: TEST TAGS'
-    #     metric = float(1.2345)
-    #     print 'CREATE'
-    #     self.client.create_gauge_definition('test.gauge.single.tags.1', hostname='')
-    #     print 'POST'
-    #     self.client.push('test.gauge.single.tags.1', metric, hostname='localhost')
-    #     print 'GET'
-    #     data = self.client.query_single_gauge('test.gauge.single.tags.1')
-    #     print data
-    #     print 'END: TEST TAGS'
-    
+    def test_tags_queries(self):
+        for i in range(1,9):
+            m_id = 'test.query.tags.{}'.format(i)
+            hostname = 'host{}'.format(i)
+            self.client.create_metric_definition(MetricType.Counter, m_id, hostname=hostname, env='qa')
+
+        mds = self.client.query_definitions(hostname='host[123]')
+        self.assertEqual(3, len(mds))
+
+        values = self.client.query_tagvalues(MetricType.Counter, hostname='host*', env='qa')
+        self.assertEqual(2, len(values))
+
     def test_add_gauge_single(self):
         # Normal way
         value = float(4.35)
@@ -223,21 +216,6 @@ class MetricsTestCase(TestMetricFunctionsBase):
         # Query for data which has start time limitation
         d = self.client.query_metric(MetricType.Gauge, 'test.query.gauge.1', start=(t-1000))
         self.assertEqual(1, len(d))
-
-    # This feature isn't really ready for prime time in Hawkular-Metrics yet.. 
-    # def test_tags_finding(self):        
-    #     # Create metrics with tags
-    #     m = 'test.create.data.tags.1'
-    #     self.client.create_metric_definition(MetricType.Gauge, m, ab='cd')
-    #     # Push some data to them
-    #     t = time_millis()
-    #     v = float(1.4)
-    #     self.client.push(MetricType.Gauge, m, v, t)
-    #     # Fetch data with certain tags
-    #     expected = { 'id': m, 'timestamp': t, 'value': v }
-    #     d = self.client.query_data_with_tags(MetricType.Gauge, ab='cd')
-    #     self.assertIsNotNone(d)
-    #     self.assertIn(expected, d)        
         
 if __name__ == '__main__':
     unittest.main()
