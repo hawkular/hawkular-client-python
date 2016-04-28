@@ -41,8 +41,13 @@ class TenantTestCase(TestMetricFunctionsBase):
         expect = { 'id': tenant }
         self.assertIn(expect, tenants)
 
-    def test_tenant_creation_with_retentions_and_aggregations(self):
-        pass
+    def test_tenant_creation_with_retentions(self):
+        tenant = str(uuid.uuid4())
+        retentions = { 'gauge': 8, 'availability': 30 }
+        self.client.create_tenant(tenant, retentions)
+
+        expect = { 'id': tenant, 'retentions': { 'gauge': 8, 'availability': 30 } }
+        self.assertIn(expect, self.client.query_tenants())
         
 class MetricsTestCase(TestMetricFunctionsBase):
     """

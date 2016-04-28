@@ -31,15 +31,6 @@ except ImportError:
     from urllib2 import Request, urlopen, URLError, HTTPError, HTTPErrorProcessor, build_opener, install_opener
     from urllib import quote, urlencode
 
-"""
-TODO: Search datapoints with tags.. tag datapoints.
-TODO: Allow changing instance's tenant?
-TODO: Authentication
-TODO: Remove HawkularMetricsConnectionError and use HawkularMetricsError only?
-TODO: HWKMETRICS-110 (fetching a single definition)
-TODO: Stats queries
-"""
-
 class MetricType:
     Gauge = 'gauges'
     Availability = 'availability'
@@ -388,15 +379,16 @@ class HawkularMetricsClient:
         """
         return self._get(self._get_tenants_url())
 
-    def create_tenant(self, tenant_id):
+    def create_tenant(self, tenant_id, retentions=None):
         """
         Create a tenant. Currently nothing can be set (to be fixed after the master
         version of Hawkular-Metrics has fixed implementation.
         """        
         item = { 'id': tenant_id }
+        if retentions is not None:
+            item['retentions'] = retentions
 
-        tenants_url = self._get_tenants_url()
-        self._post(tenants_url, json.dumps(item, indent=2))
+        self._post(self._get_tenants_url(), json.dumps(item, indent=2))
 
 """
 Static methods
