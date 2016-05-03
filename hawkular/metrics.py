@@ -78,22 +78,30 @@ class HawkularMetricsClient:
                  tenant_id,
                  host='localhost',
                  port=8080,
-                 path='hawkular/metrics'):
+                 path='hawkular/metrics',
+                 scheme='http',
+                 cafile=None,
+                 token=None):
         """
         A new instance of HawkularMetricsClient is created with the following defaults:
 
         host = localhost
         port = 8081
         path = hawkular-metrics
+        scheme = http
+        cafile = None
 
         The url that is called by the client is:
 
-        http://{host}:{port}/{2}/
+        {scheme}://{host}:{port}/{2}/
         """
         self.tenant_id = tenant_id
         self.host = host
         self.port = port
         self.path = path
+        self.cafile = cafile
+        self.scheme = scheme
+        self.token = token
 
         opener = build_opener(HawkularHTTPErrorProcessor())
         install_opener(opener)
@@ -106,7 +114,7 @@ class HawkularMetricsClient:
         return quote(metric_id, '')
 
     def _get_base_url(self):
-        return "http://{0}:{1}/{2}/".format(self.host, str(self.port), self.path)
+        return "{0}://{1}:{2}/{3}/".format(self.scheme, self.host, str(self.port), self.path)
     
     def _get_url(self, metric_type):
         return self._get_base_url() + '{0}'.format(metric_type)
@@ -137,6 +145,9 @@ class HawkularMetricsClient:
             req = Request(url=url)
             req.add_header('Content-Type', 'application/json')
             req.add_header('Hawkular-Tenant', self.tenant_id)
+
+            if self.token is not None:
+                req.add_header('Authorization', 'Bearer {0}'.format(self.token))
 
             if not isinstance(data, str):
                 data = json.dumps(data, indent=2)
