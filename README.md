@@ -5,7 +5,7 @@ This repository includes the necessary Python client libraries to access Hawkula
 
 ## Introduction
 
-Python client to access Hawkular-Metrics, an abstraction to invoke REST-methods on the server endpoint using urllib2. No external dependencies, works with Python 2.7.x and Python 3.4.x (tested with the Python 3.4.2, might work with newer versions also)
+Python client to access Hawkular-Metrics, an abstraction to invoke REST-methods on the server endpoint using urllib2. No external dependencies, works with Python 2.7.x (tested on 2.7.5/2.7.6 and 2.7.10) and Python 3.4.x (tested with the Python 3.4.2, might work with newer versions also)
 
 ## License and copyright
 
@@ -28,98 +28,109 @@ Python client to access Hawkular-Metrics, an abstraction to invoke REST-methods 
 
 ## Installation
 
-To install, run ``python setup.py install``
+To install, run ``python setup.py install`` if you installed from source code, or ``pip install hawkular-client`` if using pip.
 
 ## Usage
 
-To use hawkular-client-python in your own program, after installation import from hawkular the class HawkularMetricsClient and instantiate it. It accepts parameters tenant_id, hostname and port. After this, push dicts with keys id, timestamp and value with put or use assistant method create to send events.
+To use hawkular-client-python in your own program, after installation import from hawkular the class HawkularMetricsClient and instantiate it. After this, push dicts with keys id, timestamp and value with put or use assistant method create to send events. pydoc gives the list of allowed parameters for each function.
 
 Timestamps should be in the milliseconds after epoch and numeric values should be float. The client provides a method to request current time in milliseconds, ``time_millis()``
 
-See metrics_test.py for more detailed examples. The tests target a running docker instance of Hawkular Kettle by default (change setUp() to override).
+See metrics_test.py for more detailed examples and [Hawkular-Metrics documentation](http://www.hawkular.org/docs/components/metrics/index.html) for more detailed explanation of available features.
 
 ### General
 
-When a method wants a metric_type one can use the shortcuts of MetricType.Gauge or MetricType.Availability. For availability values, one can use Availability.Up and Availability.Down to simplify usage.
+When a method wants a metric_type one can use the shortcuts of from MetricType class (Gauge, Availability and Counter). For availability values, one can use values Availability.Up and Availability.Down to simplify usage.
+
+To instantiate the client, use HawkularMetricsClient() method. It requires something given as tenant_id, even if the tenant does not exists yet (it is not auto-created, you have to call ``create_tenant(tenant_id)`` to create it). To change the target tenant_id, use ``tenant(tenant_id)``
 
 ```python
->>> from hawkular.metrics import *
->>> client = HawkularMetricsClient(tenant_id='doc', port=8081)
+>>> from hawkular.metrics import HawkularMetricsClient, MetricType
+>>> client = HawkularMetricsClient(tenant_id='python_test')
 ```
 
 ### Creating and modifying metric definitions
 
-While creating a metric definition is not required to use them, it is possible to define a custom data retention times as well as tags for each metric. To create a metric, use method create_metric_definition(metric_id, metric_type, **tags). There are assistant methods create_numeric_definition(metric_id, **tags) and create_availability_definition(metric_id, **tags) which bypass the need for MetricType definition. The only reserved keyword for tags is dataRetention, which will change the dataRetention time, other tags are used for user's metadata.
+While creating a metric definition is not required, it is recommended to avoid duplicate metric_ids, which could cause silent data overwriting. It is possible to define a custom data retention times as well as tags for each metric. To create a metric, use method ``create_metric_definition(metric_id, metric_type, **tags)`` The only reserved keyword for tags is dataRetention, which will change the dataRetention time, other tag names are used for user's metadata.
 
 Example:
 
 ```python
->>> client.create_numeric_definition('example.metric.1', dataRetention=90, units='bytes', hostname='localhost')
+>>> client.create_metric_definition(MetricType.Gauge, 'example.doc.1', units='bytes', env='test')
 True
->>> client.query_definitions(metrics.MetricType.Gauge)
-[{u'tags': {u'units': u'bytes', u'hostname': u'localhost'}, u'id': u'example.metric.1', u'dataRetention': 90, u'tenantId': u'doc'}]
+>>> client.query_metric_definitions(MetricType.Gauge)
+[{'type': 'gauge', 'id': 'example.doc.1', 'tags': {'units': 'bytes', 'env': 'test'}, 'tenantId': 'python_test', 'dataRetention': 7}]
 ```
 
 ### Modifying metric definition tags
 
-One powerful feature of Hawkular-Metrics is the tagging feature that allows one to define descriptive metadata for any metric. Tags can be added when creating a metric definition (see above), but also modified later.
+One powerful feature of Hawkular-Metrics is the tagging feature that allows one to define descriptive metadata for any metric. Tags can be added when creating a metric definition (see above), but also modified later. By tagging the definitions, you can search for matching definitions with the tag query language.
 
 Example:
 
 ```python
->>> client.create_numeric_definition('example.metric.1', dataRetention=90, units='bytes', hostname='localhost')
->>> client.query_metric_tags(MetricType.Gauge, 'example.metric.1')
-{u'units': u'bytes', u'hostname': u'localhost'}
->>> client.delete_metric_tags(MetricType.Gauge, 'example.metric.1', units='bytes')
->>> client.query_metric_tags(MetricType.Gauge, 'example.metric.1')
-{u'hostname': u'localhost'}
->>> client.update_metric_tags(MetricType.Gauge, 'example.metric.1', hostname='machine1', env='test')
->>> client.query_metric_tags(MetricType.Gauge, 'example.metric.1')
-{u'hostname': u'machine1', u'env': u'test'}
+>>> client.create_metric_definition(MetricType.Gauge, 'example.doc.2', units='bytes', env='test', hostname='testenv01')
+>>> client.query_metric_tags(MetricType.Gauge, 'example.doc.2')
+{'units': 'bytes', 'hostname': 'testenv01', 'env': 'test'}
+```
+
+To search all the metric definitions with a given tags and tag values, use the ``query_definitions()``
+
+```python
+>>> client.query_metric_definitions(MetricType.Gauge, hostname='testenv.*')
+[{'type': 'gauge', 'id': 'example.doc.2', 'tags': {'units': 'bytes', 'hostname': 'testenv01', 'env': 'test'}, 'tenantId': 'python_test', 'dataRetention': 7}]
+```
+
+It is also possible to query all the available tag values, in case you want to list for example the hostnames that have metrics information gathered.
+
+```python
+>>> client.query_tag_values(hostname='*')
+{'hostname': ['testenv01', 'prodenv01']}
 ```
 
 ### Pushing new values
 
-All the methods that allow pushing values can accept both availability status as well as numeric values. It is possible to push multiple metrics with multiple values per metric in one call to the Hawkular-Metrics. However for convenience, methods which will push just one value for one metric is also provided. To push availability values, use MetricType.Availability and values Availability.Up and Availability.Down, otherwise the syntax is equal.
+All the methods that allow pushing values can accept both availability status as well as float values. It is possible to push multiple metrics with multiple values per metric in one call to the Hawkular-Metrics. However for convenience, a method which will push just one value for one metric is also provided. To push availability values, use MetricType.Availability and values Availability.Up and Availability.Down, otherwise the syntax is equal.
 
-Example pushing a single value:
+``create_datapoint(value)`` and ``create_metric(metric_type, metric_id, datapoints)`` return the necessary structures requested by the multi-functions.
+
+Example pushing a multiple values:
 
 ```python
-datapoint = create_datapoint(float(4.35), time_millis())
-metric = create_metric(MetricType.Gauge, 'example.metric.1', datapoint)
-client.put(metric)
+>>> from hawkular.metrics import create_datapoint, create_metric, time_millis
+>>> datapoint = create_datapoint(float(4.35), time_millis())
+>>> datapoint2 = create_datapoint(float(4.42), time_millis() + 10)
+>>> metric = create_metric(MetricType.Gauge, 'example.doc.1', [datapoint, datapoint2])
+>>> client.put(metric)
 ```
 
-And a shortcut method for the above:
+And a shortcut method to push just a single value with automatically generated timestamp:
 
 ```python
-client.push(MetricType.Gauge, 'example.metric.1', float(4.35))
-```
-
-Example pushing multiple values for the same metric (with given timestamp and without):
-
-```python
->>> v1 = create_datapoint(float(2.345)) # Timestamp is autogenerated
->>> v2 = create_datapoint(float(3.45), 1429711362289) # Timestamp is given
->>> m = create_metric(MetricType.Gauge, 'example.metric.2', [v1, v2])
->>> client.put(m)
->>> client.query_single_numeric('example.metric.2')
-[{u'timestamp': 1429711362289, u'value': 3.45}, {u'timestamp': 1429711311895, u'value': 2.345}]
+>>> client.push(MetricType.Gauge, 'example.doc.1', float(4.24))
 ```
 
 To push multiple metrics with multiple values per metric, see metrics_test.py and method ``test_add_multi_metrics_and_datapoints()``.
 
 ### Querying metric values
 
-Querying metrics is limited to just metric_id querying now with given search_options. Search for tagged data is coming up later. The supported parameters are ``start``, ``end``, ``buckets``, ``bucketDuration`` and ``distinct``. The returned data structure will change depending on the given parameters. 
+Querying metrics and its raw values happens through the method ``query_metric(metric_type, metric_id, **query_options)``. Available options are listed in the Hawkular-Metrics documentation. To query for aggregated values, use the method ``query_metric_stats(metric_type, metric_id, **query_options)``
+
+Example querying for raw values:
 
 ```python
->>> c.query_metric(MetricType.Gauge, 'test.query.numeric.1')
-[{u'timestamp': 1429816731689, u'value': 1.45}, {u'timestamp': 1429816729689, u'value': 2.0}]
->>> c.query_metric(MetricType.Gauge, 'test.query.numeric.1', start=1429816731689)
-[{u'timestamp': 1429816731689, u'value': 1.45}]
->>> c.query_metric(MetricType.Gauge, 'test.query.numeric.1', buckets=1)
-[{u'end': 1429816997651, u'min': 1.45, u'max': 2.0, u'median': 1.725, u'value': u'NaN', u'start': 1429788197651, u'avg': 1.725, u'empty': False, u'percentile95th': 2.0}]
+>>> client.query_metric(MetricType.Gauge, 'example.doc.1')
+[{'value': 4.24, 'timestamp': 1462363124102}, {'value': 4.42, 'timestamp': 1462363032249}, {'value': 4.35, 'timestamp': 1462362981464}]
+>>> client.query_metric(MetricType.Gauge, 'example.doc.1', start=1462363032249)
+[{'value': 4.24, 'timestamp': 1462363124102}, {'value': 4.42, 'timestamp': 1462363032249}]
+```
+
+For aggregated metrics:
+
+```python
+>>> client.query_metric_stats(MetricType.Gauge, 'example.doc.1', buckets=2, percentiles='90.0,95.0')
+[{'empty': True, 'start': 1462334779765, 'end': 1462349179765}, {'empty': False, 'avg': 4.336666666666667, 'start': 1462349179765, 'min': 4.24, 'samples': 3, 'sum': 13.01, 'max': 4.42, 'end': 1462363579765, 'median': 4.35, 'percentiles': [{'value': 4.35, 'quantile': 0.9}, {'value': 4.35, 'quantile': 0.95}]}]
+>>>
 ```
 
 ## Method documentation

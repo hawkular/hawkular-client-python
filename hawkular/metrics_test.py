@@ -63,15 +63,15 @@ class MetricsTestCase(TestMetricFunctionsBase):
         Test creating gauge metric definitions with different tags and definition.
         """
         # Create gauge metrics with empty details and added details
-        md1 = self.client.create_gauge_definition('test.create.gauge.1')
-        md2 = self.client.create_gauge_definition('test.create.gauge.2', dataRetention=90)
-        md3 = self.client.create_gauge_definition('test.create.gauge.3', dataRetention=90, units='bytes', env='qa')
+        md1 = self.client.create_metric_definition(MetricType.Gauge, 'test.create.gauge.1')
+        md2 = self.client.create_metric_definition(MetricType.Gauge, 'test.create.gauge.2', dataRetention=90)
+        md3 = self.client.create_metric_definition(MetricType.Gauge, 'test.create.gauge.3', dataRetention=90, units='bytes', env='qa')
         self.assertTrue(md1)
         self.assertTrue(md2)
         self.assertTrue(md3)
 
         # Fetch metrics definition and check that the ones we created appeared also
-        m = self.client.query_definitions(MetricType.Gauge)
+        m = self.client.query_metric_definitions(MetricType.Gauge)
         self.assertEqual(3, len(m))
         self.assertEqual(self.test_tenant, m[0]['tenantId'])
         self.assertEqual('bytes', m[2]['tags']['units'])
@@ -87,24 +87,24 @@ class MetricsTestCase(TestMetricFunctionsBase):
         self.assertEqual(m, expect) # Did it?
 
         # Lets try creating a duplicate metric
-        md4 = self.client.create_gauge_definition('test.create.gauge.1')
+        md4 = self.client.create_metric_definition(MetricType.Gauge, 'test.create.gauge.1')
         self.assertFalse(md4, 'Should have received an exception, metric with the same name was already created')
 
     def test_availability_creation(self):
         # Create availability metric
         # Fetch mterics and check that it did appear
-        self.client.create_availability_definition('test.create.avail.1')
-        self.client.create_availability_definition('test.create.avail.2', dataRetention=90)
-        self.client.create_availability_definition('test.create.avail.3', dataRetention=94, env='qa')
+        self.client.create_metric_definition(MetricType.Availability, 'test.create.avail.1')
+        self.client.create_metric_definition(MetricType.Availability, 'test.create.avail.2', dataRetention=90)
+        self.client.create_metric_definition(MetricType.Availability, 'test.create.avail.3', dataRetention=94, env='qa')
         # Fetch metrics and check that it did appear
-        m = self.client.query_definitions(MetricType.Availability)        
+        m = self.client.query_metric_definitions(MetricType.Availability)        
         self.assertEqual(3, len(m))
         self.assertEqual(94, m[2]['dataRetention'])
 
     def test_tags_modifications(self):
         m = 'test.create.tags.1'
         # Create metric without tags
-        self.client.create_gauge_definition(m)
+        self.client.create_metric_definition(MetricType.Gauge, m)
         e = self.client.query_metric_tags(MetricType.Gauge, m)
         self.assertIsNotNone(e)
         self.assertEqual({}, e)
@@ -126,10 +126,10 @@ class MetricsTestCase(TestMetricFunctionsBase):
             hostname = 'host{}'.format(i)
             self.client.create_metric_definition(MetricType.Counter, m_id, hostname=hostname, env='qa')
 
-        mds = self.client.query_definitions(hostname='host[123]')
+        mds = self.client.query_metric_definitions(hostname='host[123]')
         self.assertEqual(3, len(mds))
 
-        values = self.client.query_tagvalues(MetricType.Counter, hostname='host*', env='qa')
+        values = self.client.query_tag_values(MetricType.Counter, hostname='host.*', env='qa')
         self.assertEqual(2, len(values))
 
     def test_add_gauge_single(self):
@@ -140,25 +140,24 @@ class MetricsTestCase(TestMetricFunctionsBase):
         self.client.put(metric)
 
         # Fetch results
-        data = self.client.query_single_gauge('test.gauge./')
+        data = self.client.query_metric(MetricType.Gauge, 'test.gauge./')
         self.assertEqual(float(data[0]['value']), value)
 
         # Shortcut method with tags
-        self.client.push(MetricType.Gauge, 'test.gauge.single.tags', value, hostname='localhost')
+        self.client.push(MetricType.Gauge, 'test.gauge.single.tags', value)
 
         # Fetch results
-        data = self.client.query_single_gauge('test.gauge.single.tags')
+        data = self.client.query_metric(MetricType.Gauge, 'test.gauge.single.tags')
         self.assertEqual(value, float(data[0]['value']))
-        # self.assertEqual(data[0]['tags']['localhost'], 'localhost')
 
     def test_add_availability_single(self):
         self.client.push(MetricType.Availability, 'test.avail.1', Availability.Up)
         self.client.push(MetricType.Availability, 'test.avail.2', 'down')
 
-        up = self.client.query_single_availability('test.avail.1')
+        up = self.client.query_metric(MetricType.Availability, 'test.avail.1')
         self.assertEqual(up[0]['value'], 'up')
         
-        down = self.client.query_single_availability('test.avail.2')
+        down = self.client.query_metric(MetricType.Availability, 'test.avail.2')
         self.assertEqual(down[0]['value'], Availability.Down)
 
     def test_add_gauge_multi_datapoint(self):
@@ -168,7 +167,7 @@ class MetricsTestCase(TestMetricFunctionsBase):
         metric = create_metric(MetricType.Gauge, 'test.gauge.multi', [metric_1v, metric_2v])
         self.client.put(metric)
         
-        data = self.client.query_single_gauge('test.gauge.multi')
+        data = self.client.query_metric(MetricType.Gauge, 'test.gauge.multi')
         self.assertEqual(len(data), 2)
         self.assertEqual(data[0]['value'], float(1.45))
         self.assertEqual(data[1]['value'], float(2.00))
@@ -181,7 +180,7 @@ class MetricsTestCase(TestMetricFunctionsBase):
         m = create_metric(MetricType.Availability, 'test.avail.multi', [up, down])
         
         self.client.put(m)
-        data = self.client.query_single_availability('test.avail.multi')
+        data = self.client.query_metric(MetricType.Availability, 'test.avail.multi')
 
         self.assertEqual(len(data), 2)
         self.assertEqual(data[0]['value'], 'down')
@@ -199,8 +198,8 @@ class MetricsTestCase(TestMetricFunctionsBase):
         self.client.put([metric_multi, metric2_multi])
 
         # Check that both were added correctly..
-        metric1_data = self.client.query_single_gauge('test.multi.gauge.1')
-        metric2_data = self.client.query_single_availability('test.multi.gauge.2')
+        metric1_data = self.client.query_metric(MetricType.Gauge, 'test.multi.gauge.1')
+        metric2_data = self.client.query_metric(MetricType.Availability, 'test.multi.gauge.2')
 
         self.assertEqual(2, len(metric1_data))
         self.assertEqual(1, len(metric2_data))
@@ -221,6 +220,18 @@ class MetricsTestCase(TestMetricFunctionsBase):
         # Query for data which has start time limitation
         d = self.client.query_metric(MetricType.Gauge, 'test.query.gauge.1', start=(t-1000))
         self.assertEqual(1, len(d))
+
+    def test_tenant_changing(self):
+        self.client.create_metric_definition(MetricType.Availability, 'test.tenant.avail.1')
+        # Fetch metrics and check that it did appear
+        m = self.client.query_metric_definitions(MetricType.Availability)
+        self.assertEqual(1, len(m))
+
+        tenant_old = self.client.tenant_id
+        self.client.tenant(str(uuid.uuid4()))
+        m = self.client.query_metric_definitions(MetricType.Availability)
+        self.assertEqual(0, len(m))
+
         
 if __name__ == '__main__':
     unittest.main()

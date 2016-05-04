@@ -36,6 +36,7 @@ class MetricType:
     Availability = 'availability'
     Counter = 'counters'
     Rate = 'rate'
+    _Metrics = 'metrics'
 
     @staticmethod
     def short(metric_type):
@@ -72,7 +73,7 @@ class HawkularHTTPErrorProcessor(HTTPErrorProcessor):
 class HawkularMetricsClient:
     """
     Creates new client for Hawkular-Metrics. As tenant_id, give intended tenant_id, even if it's not
-    created yet. Use one instance of HawkularMetricsClient for each tenant.
+    created yet. To change the instance's tenant_id, use tenant(tenant_id) method
     """
     def __init__(self,
                  tenant_id,
@@ -116,7 +117,10 @@ class HawkularMetricsClient:
     def _get_base_url(self):
         return "{0}://{1}:{2}/{3}/".format(self.scheme, self.host, str(self.port), self.path)
     
-    def _get_url(self, metric_type):
+    def _get_url(self, metric_type=None):
+        if metric_type is None:
+            metric_type = MetricType._Metrics
+
         return self._get_base_url() + '{0}'.format(metric_type)
 
     def _get_metrics_single_url(self, metric_type, metric_id):
@@ -228,6 +232,9 @@ class HawkularMetricsClient:
     External methods
     """    
 
+    def tenant(self, tenant_id):
+        self.tenant_id = tenant_id
+
     """
     Instance methods
     """
@@ -254,42 +261,32 @@ class HawkularMetricsClient:
         for l in r:
             self._post(self._get_metrics_raw_url(self._get_url(l)), r[l])
 
-    def push(self, metric_type, metric_id, value, timestamp=None, **tags):
+    def push(self, metric_type, metric_id, value, timestamp=None):
         """
         Pushes a single metric_id, datapoint combination to the server.
 
         This method is an assistant method for the put method by removing the need to
         create data structures first.
         """
-        item = create_metric(metric_type, metric_id, create_datapoint(value, timestamp, **tags))
+        item = create_metric(metric_type, metric_id, create_datapoint(value, timestamp))
         self.put(item)
 
-    def query_metric(self, metric_type, metric_id, **search_options):
+    def query_metric(self, metric_type, metric_id, **query_options):
         """
-        Query for metrics from the server. 
-
-        Supported search options are [optional]: start, end
-
-        Use methods query_single_gauge and query_single_availability for simple access
+        Query for metrics from the server. For possible query_options, see the Hawkular-Metrics documentation.
         """
         return self._get(
             self._get_metrics_raw_url(
                 self._get_metrics_single_url(metric_type, metric_id)),
-            **search_options)
+            **query_options)
 
-    def query_single_gauge(self, metric_id, **search_options):
-        """
-        See query_metric
-        """
-        return self.query_metric(MetricType.Gauge, metric_id, **search_options)
-
-    def query_single_availability(self, metric_id, **search_options):
-        """
-        See query_metric
-        """
-        return self.query_metric(MetricType.Availability, metric_id, **search_options)
+    def query_metric_stats(self, metric_type, metric_id, **query_options):
+        return self._get(
+            self._get_metrics_stats_url(
+                self._get_metrics_single_url(metric_type, metric_id)),
+            **query_options)
     
-    def query_definitions(self, metric_type=None, id_filter=None, **tags):
+    def query_metric_definitions(self, metric_type=None, id_filter=None, **tags):
         """
         Query available metric definitions. Available query options are id_filter for id filtering and tags (dict) as tag based query.
         Tags filtering is required for the id filtering to work.
@@ -305,16 +302,14 @@ class HawkularMetricsClient:
         if len(tags) > 0:
             params['tags'] = self._transform_tags(**tags)
 
-        return self._get(self._get_url('metrics'), **params)
+        return self._get(self._get_url(), **params)
 
-    def query_tagvalues(self, metric_type=None, **tags):
+    def query_tag_values(self, metric_type=None, **tags):
         """
-        Query for possible tag values.
+        Query for possible tag values. **tags is a dict which has tagname as key and regexp tagvalue as value. See Hawkular-Metrics
+        tag query language for more detailed definition.
         """
         tagql = self._transform_tags(**tags)
-
-        if metric_type is None:
-            metric_type = 'metrics'
 
         return self._get(self._get_metrics_tags_url(self._get_url(metric_type)) + '/{}'.format(tagql))
 
@@ -322,9 +317,6 @@ class HawkularMetricsClient:
         """
         Create metric definition with custom definition. **tags should be a set of tags, such as
         units, env ..
-
-        Use methods create_gauge_definition and create_availability_definition to avoid using
-        MetricType.Gauge / MetricType.Availability
         """
         item = { 'id': metric_id }
         if len(tags) > 0:
@@ -345,18 +337,6 @@ class HawkularMetricsClient:
             raise e
 
         return True
-
-    def create_gauge_definition(self, metric_id, **tags):
-        """
-        See create_metric_definition
-        """
-        return self.create_metric_definition(MetricType.Gauge, metric_id, **tags)
-
-    def create_availability_definition(self, metric_id, **tags):
-        """
-        See create_metric_definition
-        """
-        return self.create_metric_definition(MetricType.Availability, metric_id, **tags)
         
     def query_metric_tags(self, metric_type, metric_id):
         """
@@ -373,7 +353,7 @@ class HawkularMetricsClient:
 
     def delete_metric_tags(self, metric_type, metric_id, **deleted_tags):
         """
-        Delete one or more tags from the metric definition. The tag values must match what's stored on the server.
+        Delete one or more tags from the metric definition. 
         """
         tags = self._transform_tags(**deleted_tags)
         tags_url = self._get_metrics_tags_url(self._get_metrics_single_url(metric_type, metric_id)) + '/{0}'.format(tags)
