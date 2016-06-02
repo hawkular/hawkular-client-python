@@ -7,17 +7,19 @@ import pypandoc
 
 here = path.abspath(path.dirname(__file__))
 
-with open(path.join(here, 'README.md')) as f:
-    long_description = f.read()
-
 # Create rst here from Markdown
-z = pypandoc.convert('README.md','rst',format='markdown')
-
+if path.exists(path.join(here, 'README.md')):
+    z = pypandoc.convert('README.md','rst',format='markdown')
+    
 with open('README.rst','w') as outfile:
     outfile.write(z)
+
+with open(path.join(here, 'README.rst')) as f:
+    long_description = f.read()
+
     
 setup(name='hawkular-client',
-      version='0.4.0',
+      version='0.4.1',
       description='Python client to communicate with Hawkular server over HTTP(S)',
       author='Michael Burman',
       author_email='miburman@redhat.com',
