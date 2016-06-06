@@ -94,7 +94,8 @@ class MetricsTestCase(TestMetricFunctionsBase):
             {'tags': {'units': 'bytes', 'env': 'qa'},
              'id': 'test.create.gauge.3', 'dataRetention': 90, 'type': 'gauge', 'tenantId': self.test_tenant}]
 
-        self.assertEqual(m, expect) # Did it?
+        for e in expect:
+            self.assertIn(e, m)
 
         # Lets try creating a duplicate metric
         md4 = self.client.create_metric_definition(MetricType.Gauge, id_name.format('1'))
