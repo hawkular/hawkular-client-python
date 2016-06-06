@@ -17,9 +17,13 @@
 from __future__ import unicode_literals
 
 import codecs
-import json
 import time
 import collections
+
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 try:
     # Python 3

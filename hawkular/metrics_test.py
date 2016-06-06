@@ -57,15 +57,22 @@ class MetricsTestCase(TestMetricFunctionsBase):
     Metric definition creation should also test fetching the definition, while
     metric inserts should test also fetching the metric data.
     """
+
+    def find_metric(self, name, definitions):
+        for defin in definitions:
+            if defin['id'] == name:
+                return defin
     
     def test_gauge_creation(self):
         """
         Test creating gauge metric definitions with different tags and definition.
         """
         # Create gauge metrics with empty details and added details
-        md1 = self.client.create_metric_definition(MetricType.Gauge, 'test.create.gauge.1')
-        md2 = self.client.create_metric_definition(MetricType.Gauge, 'test.create.gauge.2', dataRetention=90)
-        md3 = self.client.create_metric_definition(MetricType.Gauge, 'test.create.gauge.3', dataRetention=90, units='bytes', env='qa')
+        id_name = 'test.create.gauge.{}'
+
+        md1 = self.client.create_metric_definition(MetricType.Gauge, id_name.format('1'))
+        md2 = self.client.create_metric_definition(MetricType.Gauge, id_name.format('2'), dataRetention=90)
+        md3 = self.client.create_metric_definition(MetricType.Gauge, id_name.format('3'), dataRetention=90, units='bytes', env='qa')
         self.assertTrue(md1)
         self.assertTrue(md2)
         self.assertTrue(md3)
@@ -74,7 +81,10 @@ class MetricsTestCase(TestMetricFunctionsBase):
         m = self.client.query_metric_definitions(MetricType.Gauge)
         self.assertEqual(3, len(m))
         self.assertEqual(self.test_tenant, m[0]['tenantId'])
-        self.assertEqual('bytes', m[2]['tags']['units'])
+
+        md3_f = self.find_metric(id_name.format('3'), m)
+
+        self.assertEqual('bytes', md3_f['tags']['units'])
 
         # This is what the returned dict should look like
         expect = [
@@ -87,19 +97,22 @@ class MetricsTestCase(TestMetricFunctionsBase):
         self.assertEqual(m, expect) # Did it?
 
         # Lets try creating a duplicate metric
-        md4 = self.client.create_metric_definition(MetricType.Gauge, 'test.create.gauge.1')
+        md4 = self.client.create_metric_definition(MetricType.Gauge, id_name.format('1'))
         self.assertFalse(md4, 'Should have received an exception, metric with the same name was already created')
 
     def test_availability_creation(self):
+        id_name = 'test.create.avail.{}'
         # Create availability metric
         # Fetch mterics and check that it did appear
-        self.client.create_metric_definition(MetricType.Availability, 'test.create.avail.1')
-        self.client.create_metric_definition(MetricType.Availability, 'test.create.avail.2', dataRetention=90)
-        self.client.create_metric_definition(MetricType.Availability, 'test.create.avail.3', dataRetention=94, env='qa')
+        self.client.create_metric_definition(MetricType.Availability, id_name.format('1'))
+        self.client.create_metric_definition(MetricType.Availability, id_name.format('2'), dataRetention=90)
+        self.client.create_metric_definition(MetricType.Availability, id_name.format('3'), dataRetention=94, env='qa')
         # Fetch metrics and check that it did appear
         m = self.client.query_metric_definitions(MetricType.Availability)        
         self.assertEqual(3, len(m))
-        self.assertEqual(94, m[2]['dataRetention'])
+
+        avail_3 = self.find_metric(id_name.format('3'), m)
+        self.assertEqual(94, avail_3['dataRetention'])
 
     def test_tags_modifications(self):
         m = 'test.create.tags.1'
