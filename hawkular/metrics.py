@@ -19,6 +19,7 @@ from __future__ import unicode_literals
 import codecs
 import time
 import collections
+import base64
 
 try:
     import simplejson as json
@@ -86,7 +87,9 @@ class HawkularMetricsClient:
                  path='hawkular/metrics',
                  scheme='http',
                  cafile=None,
-                 token=None):
+                 token=None,
+                 username=None,
+                 password=None):
         """
         A new instance of HawkularMetricsClient is created with the following defaults:
 
@@ -107,6 +110,8 @@ class HawkularMetricsClient:
         self.cafile = cafile
         self.scheme = scheme
         self.token = token
+        self.username = username
+        self.password = password
 
         opener = build_opener(HawkularHTTPErrorProcessor())
         install_opener(opener)
@@ -156,6 +161,8 @@ class HawkularMetricsClient:
 
             if self.token is not None:
                 req.add_header('Authorization', 'Bearer {0}'.format(self.token))
+            elif self.username is not None:
+                req.add_header('Authorization', 'Basic {0}'.format(base64.b64encode(self.username + b':' + self.password)))
 
             if not isinstance(data, str):
                 data = json.dumps(data, indent=2)
