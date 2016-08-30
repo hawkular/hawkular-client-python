@@ -20,6 +20,7 @@ import codecs
 import time
 import collections
 import base64
+import ssl
 
 try:
     import simplejson as json
@@ -87,6 +88,7 @@ class HawkularMetricsClient:
                  path='hawkular/metrics',
                  scheme='http',
                  cafile=None,
+                 context=None,
                  token=None,
                  username=None,
                  password=None):
@@ -109,6 +111,7 @@ class HawkularMetricsClient:
         self.path = path
         self.cafile = cafile
         self.scheme = scheme
+        self.context = context
         self.token = token
         self.username = username
         self.password = password
@@ -177,7 +180,7 @@ class HawkularMetricsClient:
                     req.data = data.encode('utf-8')
 
             req.get_method = lambda: method
-            res = urlopen(req)
+            res = urlopen(req, context = self.context)
             if method == 'GET':
                 if res.getcode() == 200:
                     data = json.load(reader(res))
