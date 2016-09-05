@@ -161,6 +161,7 @@ class HawkularMetricsClient:
             req = Request(url=url)
             req.add_header('Content-Type', 'application/json')
             req.add_header('Hawkular-Tenant', self.tenant_id)
+            req.add_header('Host', self.host)
 
             if self.token is not None:
                 req.add_header('Authorization', 'Bearer {0}'.format(self.token))
