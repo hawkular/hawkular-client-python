@@ -41,6 +41,7 @@ class MetricType:
     Gauge = 'gauges'
     Availability = 'availability'
     Counter = 'counters'
+    String = 'strings'
     Rate = 'rate'
     _Metrics = 'metrics'
 
@@ -50,6 +51,8 @@ class MetricType:
             return 'gauge'
         elif metric_type is MetricType.Counter:
             return 'counter'
+        elif metric_type is MetricType.String:
+            return 'string'
         else:
             return 'availability'
 
