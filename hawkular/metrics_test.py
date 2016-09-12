@@ -174,6 +174,11 @@ class MetricsTestCase(TestMetricFunctionsBase):
         down = self.client.query_metric(MetricType.Availability, 'test.avail.2')
         self.assertEqual(down[0]['value'], Availability.Down)
 
+    def test_add_string_single(self):
+        self.client.push(MetricType.String, 'test.string.1', "foo")
+        data = self.client.query_metric(MetricType.String, 'test.string.1')
+        self.assertEqual(data, 'foo')
+        
     def test_add_gauge_multi_datapoint(self):
         metric_1v = create_datapoint(float(1.45))
         metric_2v = create_datapoint(float(2.00), (time_millis() - 2000))
