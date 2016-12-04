@@ -177,7 +177,7 @@ class MetricsTestCase(TestMetricFunctionsBase):
     def test_add_string_single(self):
         self.client.push(MetricType.String, 'test.string.1', "foo")
         data = self.client.query_metric(MetricType.String, 'test.string.1')
-        self.assertEqual(data, 'foo')
+        self.assertEqual(data[0]["value"], 'foo')
         
     def test_add_gauge_multi_datapoint(self):
         metric_1v = create_datapoint(float(1.45))
@@ -251,6 +251,32 @@ class MetricsTestCase(TestMetricFunctionsBase):
         m = self.client.query_metric_definitions(MetricType.Availability)
         self.assertEqual(0, len(m))
 
-        
+    def test_query_semantic_version(self):
+        major, minor, patch = self.client.query_semantic_version()
+        self.assertTrue(0 <= major <= 1000)
+        self.assertTrue(0 <= minor <= 1000)
+
+    def test_query_status(self):
+        status = self.client.query_status()
+        self.assertTrue('Implementation-Version' in status)
+
+    def test_get_metrics_raw_url(self):
+        self.client.legacy_api = True
+        url = self.client._get_metrics_raw_url('some.key')
+        self.assertEqual('some.key/data', url)
+
+        self.client.legacy_api = False
+        url = self.client._get_metrics_raw_url('some.key')
+        self.assertEqual('some.key/raw', url)
+
+    def test_get_metrics_stats_url(self):
+        self.client.legacy_api = True
+        url = self.client._get_metrics_stats_url('some.key')
+        self.assertEqual('some.key/data', url)
+
+        self.client.legacy_api = False
+        url = self.client._get_metrics_stats_url('some.key')
+        self.assertEqual('some.key/stats', url)
+
 if __name__ == '__main__':
     unittest.main()
