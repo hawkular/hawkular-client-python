@@ -18,7 +18,7 @@ from __future__ import unicode_literals
 
 import unittest
 import uuid
-from alerts import *
+from hawkular.alerts import *
 
 
 class TestAlertsFunctionsBase(unittest.TestCase):
@@ -26,9 +26,7 @@ class TestAlertsFunctionsBase(unittest.TestCase):
         self.maxDiff = None
         self.test_tenant = str(uuid.uuid4())
         self.client = HawkularAlertsClient(tenant_id=self.test_tenant,
-                                           port=8080,
-                                           username='jdoe',
-                                           password='password')
+                                           port=8080)
 
 
 class MetricsTestCase(TestAlertsFunctionsBase):

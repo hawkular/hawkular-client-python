@@ -56,7 +56,11 @@ class ApiOject:
             setattr(self, k, udict.get(k,self.defaults.get(k)))
 
     def to_json_object(self):
-        return ApiOject.transform_dict_to_camelcase(self.__dict__)
+        dictionary = {}
+        for attribute in self.__slots__:
+            if hasattr(self,attribute):
+                dictionary[attribute] = getattr(self,attribute)
+        return ApiOject.transform_dict_to_camelcase(dictionary)
 
     @staticmethod
     def _to_camelcase(word):
@@ -71,13 +75,13 @@ class ApiOject:
     def transform_dict_to_camelcase(dictionary):
         if dictionary is None:
             return dict()
-        return dict((ApiOject._to_camelcase(k), v) for k, v in dictionary.iteritems() if v is not None)
+        return dict((ApiOject._to_camelcase(k), v) for k, v in dictionary.items() if v is not None)
 
     @staticmethod
     def transform_dict_to_underscore(dictionary):
         if dictionary is None:
             return dict()
-        return dict((ApiOject._to_underscore(k), v) for k, v in dictionary.iteritems() if v is not None)
+        return dict((ApiOject._to_underscore(k), v) for k, v in dictionary.items() if v is not None)
 
     @classmethod
     def list_to_object_list(cls, o):
@@ -171,8 +175,9 @@ class HawkularBaseClient:
         if self.token is not None:
             req.add_header('Authorization', 'Bearer {0}'.format(self.token))
         elif self.username is not None:
+            b64 = base64.b64encode(bytes(self.username + ':' + self.password, encoding='utf-8'))
             req.add_header('Authorization',
-                           'Basic {0}'.format(base64.b64encode(self.username + b':' + self.password)))
+                           'Basic {0}'.format(b64))
 
         if not isinstance(data, str):
             data = json.dumps(data, indent=2)

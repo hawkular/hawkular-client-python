@@ -98,7 +98,8 @@ class HawkularMetricsClient:
                  token=None,
                  username=None,
                  password=None,
-                 auto_set_legacy_api=True):
+                 auto_set_legacy_api=True,
+                 authtoken=None):
         """
         A new instance of HawkularMetricsClient is created with the following defaults:
 
@@ -123,6 +124,7 @@ class HawkularMetricsClient:
         self.username = username
         self.password = password
         self.legacy_api = False
+        self.authtoken = authtoken
 
         opener = build_opener(HawkularHTTPErrorProcessor())
         install_opener(opener)
@@ -184,6 +186,9 @@ class HawkularMetricsClient:
                 req.add_header('Authorization', 'Bearer {0}'.format(self.token))
             elif self.username is not None:
                 req.add_header('Authorization', 'Basic {0}'.format(base64.b64encode(self.username + b':' + self.password)))
+
+            if self.authtoken is not None:
+                req.add_header('Hawkular-Admin-Token', self.authtoken)
 
             if not isinstance(data, str):
                 data = json.dumps(data, indent=2)

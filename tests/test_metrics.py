@@ -18,7 +18,7 @@ from __future__ import unicode_literals
 
 import unittest
 import uuid
-from metrics import *
+from  hawkular.metrics  import *
 
 class TestMetricFunctionsBase(unittest.TestCase):
 
