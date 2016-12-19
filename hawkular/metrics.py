@@ -67,6 +67,9 @@ class HawkularMetricsError(HTTPError):
 class HawkularMetricsConnectionError(URLError):
     pass
 
+class HawkularMetricsStatusError(ValueError):
+    pass
+
 class HawkularHTTPErrorProcessor(HTTPErrorProcessor):
     """
     Hawkular-Metrics uses http codes 201, 204
@@ -94,7 +97,8 @@ class HawkularMetricsClient:
                  context=None,
                  token=None,
                  username=None,
-                 password=None):
+                 password=None,
+                 auto_set_legacy_api=True):
         """
         A new instance of HawkularMetricsClient is created with the following defaults:
 
@@ -118,9 +122,16 @@ class HawkularMetricsClient:
         self.token = token
         self.username = username
         self.password = password
+        self.legacy_api = False
 
         opener = build_opener(HawkularHTTPErrorProcessor())
         install_opener(opener)
+
+        # Call the server status endpoint to get the version number,
+        # Use the return sematic version to set the value of legacy_api
+        if auto_set_legacy_api:
+            major, minor, patch = self.query_semantic_version()
+            self.legacy_api = (major == 0 and minor < 16)
 
     """
     Internal methods
@@ -142,16 +153,19 @@ class HawkularMetricsClient:
         return self._get_url(metric_type) + '/{0}'.format(self._clean_metric_id(metric_id))
 
     def _get_metrics_raw_url(self, metrics_url):
-        return metrics_url + '/raw'
+        return metrics_url + '/data' if self.legacy_api else metrics_url + '/raw'
 
     def _get_metrics_stats_url(self, metrics_url):
-        return metrics_url + '/stats'
+        return metrics_url + '/data' if self.legacy_api else metrics_url + '/stats'
 
     def _get_metrics_tags_url(self, metrics_url):
         return metrics_url + '/tags'
 
     def _get_tenants_url(self):
         return self._get_base_url() + 'tenants'
+
+    def _get_status_url(self):
+        return self._get_base_url() + 'status'
 
     @staticmethod
     def _transform_tags(**tags):
@@ -235,6 +249,16 @@ class HawkularMetricsClient:
             # Cast to HawkularMetricsConnectionError
             e.__class__ = HawkularMetricsConnectionError
             e.msg = "Error, could not send event(s) to the Hawkular Metrics: " + str(e.reason)
+            raise e
+        elif isinstance(e, KeyError):
+            # Cast to HawkularMetricsStatusError
+            e.__class__ = HawkularMetricsStatusError
+            e.msg = "Error, unable to get implementation version for metrics: " + str(e.reason)
+            raise e
+        elif isinstance(e, ValueError):
+            # Cast to HawkularMetricsStatusError
+            e.__class__ = HawkularMetricsStatusError
+            e.msg = "Error, unable to determine implementation version for metrics: " + str(e.reason)
             raise e
         else:
             raise e
@@ -398,6 +422,22 @@ class HawkularMetricsClient:
             item['retentions'] = retentions
 
         self._post(self._get_tenants_url(), json.dumps(item, indent=2))
+
+    """
+    General information related queries
+    """
+
+    def query_semantic_version(self):
+        status_hash = self.query_status()
+        try:
+            version = status_hash['Implementation-Version']
+            major, minor, patch = map(int, version.split('.')[:3])
+        except Exception as e:
+            self._handle_error(e)
+        return major, minor, patch
+
+    def query_status(self):
+        return self._get(self._get_status_url())
 
 """
 Static methods
