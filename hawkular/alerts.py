@@ -155,6 +155,16 @@ class HawkularAlertsClient(HawkularBaseClient):
         data = self._serialize_object(trigger)
         return Trigger(self._post(self._service_url(['triggers', 'groups']), data))
 
+    def delete_group_trigger(self, group_id, keep_non_orphans=False, keep_orphans=False):
+         """
+         Delete a group trigger
+         :param group_id: ID of the group trigger to delete
+         :param keep_non_orphans: if True converts the non-orphan member triggers to standard triggers
+         :param keep_orphans: if True converts the orphan member triggers to standard triggers
+         """
+         params = {'keepNonOrphans': str(keep_non_orphans).lower(), 'keepOrphans': str(keep_orphans).lower()}
+         self._delete(self._service_url(['triggers', 'groups', group_id], params=params))
+
     def create_group_member(self, member):
         data = self._serialize_object(member)
         return Trigger(self._post(self._service_url(['triggers', 'groups', 'members']), data))
