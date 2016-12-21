@@ -25,7 +25,7 @@ class TestMetricFunctionsBase(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
         self.test_tenant = str(uuid.uuid4())
-        self.client = HawkularMetricsClient(tenant_id=self.test_tenant, port=8080)
+        self.client = HawkularMetricsClient(tenant_id=self.test_tenant, port=8080, authtoken='secret')
         
 class TenantTestCase(TestMetricFunctionsBase):
     """

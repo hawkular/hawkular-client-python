@@ -12,6 +12,10 @@ before_install:
   - sudo apt-get install jq
   - ./.travis/run_hawkular.sh
 env:
-  PYTHONPATH=.
+  global:
+    - PYTHONPATH=.
+  matrix:
+    - HAWKULAR_VERSION=latest
+    - HAWKULAR_VERSION=0.15
 
 script: pytest
