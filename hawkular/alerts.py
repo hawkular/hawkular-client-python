@@ -155,6 +155,15 @@ class HawkularAlertsClient(HawkularBaseClient):
         data = self._serialize_object(trigger)
         return Trigger(self._post(self._service_url(['triggers', 'groups']), data))
 
+    def get_group_members(self, group_id):
+        """
+        Find all group member trigger definitions
+        :param group_id: group trigger id
+        :return: list of asociated group members as trigger objects
+        """
+        url = self._service_url(['triggers', 'groups', group_id, 'members'])
+        return Trigger.list_to_object_list(self._get(url))
+
     def create_group_member(self, member):
         data = self._serialize_object(member)
         return Trigger(self._post(self._service_url(['triggers', 'groups', 'members']), data))
