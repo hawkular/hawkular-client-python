@@ -19,6 +19,8 @@ from __future__ import unicode_literals
 import unittest
 import uuid
 from hawkular.alerts import *
+import os
+from tests import base
 
 
 class TestAlertsFunctionsBase(unittest.TestCase):
@@ -29,7 +31,9 @@ class TestAlertsFunctionsBase(unittest.TestCase):
                                            port=8080)
 
 
-class MetricsTestCase(TestAlertsFunctionsBase):
+@unittest.skipIf(base.version != 'latest' and base.major_version == 0 and base.minor_version <= 15,
+                 'Not supported in ' + base.version + ' version')
+class AlertsTestCase(TestAlertsFunctionsBase):
     def test_trigger_creation(self):
         trigger = Trigger()
         trigger.id = 'id_1'
