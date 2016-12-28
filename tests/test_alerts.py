@@ -158,3 +158,12 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         self.assertEqual(len(gcc), 1)
         t_m1c = self.client.create_group_member(m1)
         self.assertEqual(t_m1c.type, TriggerType.MEMBER)
+
+        # Update group trigger
+        t.enabled = True
+        t.severity = Severity.MEDIUM
+
+        self.client.update_group_trigger(t.id, t)
+        gt = self.client.get_trigger(t.id)
+        self.assertEqual(gt.enabled, True)
+        self.assertEqual(gt.severity, Severity.MEDIUM)
