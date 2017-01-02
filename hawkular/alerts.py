@@ -14,9 +14,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 """
-
-from client import ApiOject, HawkularBaseClient
-
+from hawkular.client import ApiOject, HawkularBaseClient
 
 class Trigger(ApiOject):
     __slots__ = [
