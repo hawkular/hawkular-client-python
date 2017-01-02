@@ -56,7 +56,7 @@ class FullTrigger(ApiOject):
         udict = FullTrigger.transform_dict_to_underscore(dictionary)
         self.trigger = Trigger(udict.get('trigger'))
         self.dampenings = Dampening.list_to_object_list(udict.get('dampenings'))
-        self.conditions = Dampening.list_to_object_list(udict.get('conditions'))
+        self.conditions = Condition.list_to_object_list(udict.get('conditions'))
 
 
 class GroupMemberInfo(ApiOject):
