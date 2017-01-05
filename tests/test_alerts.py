@@ -22,6 +22,13 @@ from hawkular.alerts import *
 import os
 from tests import base
 
+try:
+    # Python 3
+    from urllib.error import HTTPError
+except ImportError:
+    # Fall back to Python 2's urllib2
+    from urllib2 import HTTPError
+
 
 class TestAlertsFunctionsBase(unittest.TestCase):
     def setUp(self):
@@ -125,6 +132,63 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         self.assertEqual(created_group_trigger.id, trigger.id)
         self.assertEqual(created_group_trigger.name, trigger.name)
 
+    def test_get_trigger_conditions(self):
+        # Create group trigger object
+        trigger = Trigger()
+        trigger.id = 'group_trigger_01'
+        trigger.name = 'group_trigger'
+        self.client.create_group_trigger(trigger)
+
+        # Create condition objects
+        condition1 = Condition()
+        condition1.trigger_mode = TriggerMode.AUTORESOLVE
+        condition1.type = ConditionType.THRESHOLD
+        condition1.data_id = 'did1'
+        condition1.threshold = 5
+        condition1.operator = Operator.LT
+
+        condition2 = Condition()
+        condition2.trigger_mode = TriggerMode.AUTORESOLVE
+        condition2.type = ConditionType.THRESHOLD
+        condition2.data_id = 'did2'
+        condition2.threshold = 5
+        condition2.operator = Operator.GT
+
+        condition3 = Condition()
+        condition3.trigger_mode = TriggerMode.AUTORESOLVE
+        condition3.type = ConditionType.THRESHOLD
+        condition3.data_id = 'did3'
+        condition3.threshold = 5
+        condition3.operator = Operator.GTE
+
+        gc = GroupConditionsInfo()
+        gc.addCondition(condition1)
+        gc.addCondition(condition2)
+        gc.addCondition(condition3)
+        self.client.create_group_conditions(trigger.id, TriggerMode.AUTORESOLVE, gc)
+
+        gc = self.client.get_trigger_conditions(trigger.id)
+        self.assertEqual(len(gc), 3)
+        gc_dids = [c.data_id for c in gc]
+        self.assertEqual(gc_dids, ['did1', 'did2', 'did3'])
+
+    def test_delete_group_trigger(self):
+        # Create a group trigger
+        gt = Trigger()
+        gt.id = 'delete_group_trigger'
+        gt.name = 'group_trigger_to_delete'
+        self.client.create_group_trigger(gt)
+
+        group_count = len(self.client.list_triggers())
+        # Delete the created group trigger
+        self.client.delete_group_trigger('delete_group_trigger')
+
+        # Compare number of remaining triggers and query the deleted trigger id
+        self.assertEqual(len(self.client.list_triggers()), group_count-1)
+        with self.assertRaises(HTTPError) as e:
+            self.client.get_trigger('delete_group_trigger')
+            self.assertEqual(e.getcode(), 404)
+
     def test_create_groups(self):
         # Create a group trigger
         t = Trigger()
@@ -161,3 +225,12 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         gm = self.client.get_group_members('a-group-trigger')
         self.assertEqual(len(gm), 1)
         self.assertEqual(gm[0].id, 'member1')
+
+        # Update group trigger
+        t.enabled = True
+        t.severity = Severity.MEDIUM
+
+        self.client.update_group_trigger(t.id, t)
+        gt = self.client.get_trigger(t.id)
+        self.assertEqual(gt.enabled, True)
+        self.assertEqual(gt.severity, Severity.MEDIUM)

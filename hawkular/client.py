@@ -165,7 +165,7 @@ class HawkularBaseClient:
     def tenant(self, tenant_id):
         self.tenant_id = tenant_id
 
-    def _http(self, url, method, data=None, decoder=None):
+    def _http(self, url, method, data=None, decoder=None, parse_json=True):
         res = None
         req = Request(url=url)
         req.add_header('Content-Type', 'application/json')
@@ -193,10 +193,13 @@ class HawkularBaseClient:
             req.get_method = lambda: method
             res = urlopen(req, context=self.context)
 
-            if res.getcode() == 200:
-                data = json.load(reader(res), cls=decoder)
-            elif res.getcode() == 204:
-                data = {}
+            if parse_json:
+                if res.getcode() == 200:
+                    data = json.load(reader(res), cls=decoder)
+                elif res.getcode() == 204:
+                    data = {}
+            else:
+                data = reader(res).read()
 
             return data
 
@@ -207,11 +210,11 @@ class HawkularBaseClient:
             if res:
                 res.close()
 
-    def _put(self, url, data):
-        return self._http(url, 'PUT', data)
+    def _put(self, url, data, parse_json=True):
+        return self._http(url, 'PUT', data, parse_json=parse_json)
 
     def _delete(self, url):
-        return self._http(url, 'DELETE')
+        return self._http(url, 'DELETE', parse_json=False)
 
     def _post(self, url, data):
         return self._http(url, 'POST', data)
