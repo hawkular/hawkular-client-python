@@ -71,9 +71,10 @@ class GroupConditionsInfo(ApiOject):
         'conditions', 'data_id_member_map'
     ]
 
-    defaults = {
-        'conditions': []
-    }
+    def __init__(self, dictionary=dict()):
+        ApiOject.__init__(self, dictionary)
+        udict = self.transform_dict_to_underscore(dictionary)
+        self.conditions = Condition.list_to_object_list(udict.get('conditions'))
 
     def addCondition(self, c):
         self.conditions.append(c)
@@ -176,6 +177,15 @@ class HawkularAlertsClient(HawkularBaseClient):
     def create_group_member(self, member):
         data = self._serialize_object(member)
         return Trigger(self._post(self._service_url(['triggers', 'groups', 'members']), data))
+
+    def get_trigger_conditions(self, trigger_id):
+        """
+        Get all conditions for a specific trigger
+        :param trigger_id: Trigger definition id to be retrieved
+        :return: list of condition objects
+        """
+        response = self._get(self._service_url(['triggers', trigger_id, 'conditions']))
+        return  Condition.list_to_object_list(response)
 
     def create_group_conditions(self, group_id, trigger_mode, conditions):
         data = self._serialize_object(conditions)

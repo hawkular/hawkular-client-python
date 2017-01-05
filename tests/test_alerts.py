@@ -132,6 +132,46 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         self.assertEqual(created_group_trigger.id, trigger.id)
         self.assertEqual(created_group_trigger.name, trigger.name)
 
+    def test_get_trigger_conditions(self):
+        # Create group trigger object
+        trigger = Trigger()
+        trigger.id = 'group_trigger_01'
+        trigger.name = 'group_trigger'
+        self.client.create_group_trigger(trigger)
+
+        # Create condition objects
+        condition1 = Condition()
+        condition1.trigger_mode = TriggerMode.AUTORESOLVE
+        condition1.type = ConditionType.THRESHOLD
+        condition1.data_id = 'did1'
+        condition1.threshold = 5
+        condition1.operator = Operator.LT
+
+        condition2 = Condition()
+        condition2.trigger_mode = TriggerMode.AUTORESOLVE
+        condition2.type = ConditionType.THRESHOLD
+        condition2.data_id = 'did2'
+        condition2.threshold = 5
+        condition2.operator = Operator.GT
+
+        condition3 = Condition()
+        condition3.trigger_mode = TriggerMode.AUTORESOLVE
+        condition3.type = ConditionType.THRESHOLD
+        condition3.data_id = 'did3'
+        condition3.threshold = 5
+        condition3.operator = Operator.GTE
+
+        gc = GroupConditionsInfo()
+        gc.addCondition(condition1)
+        gc.addCondition(condition2)
+        gc.addCondition(condition3)
+        self.client.create_group_conditions(trigger.id, TriggerMode.AUTORESOLVE, gc)
+
+        gc = self.client.get_trigger_conditions(trigger.id)
+        self.assertEqual(len(gc), 3)
+        gc_dids = [c.data_id for c in gc]
+        self.assertEqual(gc_dids, ['did1', 'did2', 'did3'])
+
     def test_delete_group_trigger(self):
         # Create a group trigger
         gt = Trigger()
