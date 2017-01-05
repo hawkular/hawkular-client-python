@@ -22,6 +22,13 @@ from hawkular.alerts import *
 import os
 from tests import base
 
+try:
+    # Python 3
+    from urllib.error import HTTPError
+except ImportError:
+    # Fall back to Python 2's urllib2
+    from urllib2 import HTTPError
+
 
 class TestAlertsFunctionsBase(unittest.TestCase):
     def setUp(self):
@@ -124,6 +131,23 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         created_group_trigger = created_full_trigger = self.client.get_trigger('group_trigger_1')
         self.assertEqual(created_group_trigger.id, trigger.id)
         self.assertEqual(created_group_trigger.name, trigger.name)
+
+    def test_delete_group_trigger(self):
+        # Create a group trigger
+        gt = Trigger()
+        gt.id = 'delete_group_trigger'
+        gt.name = 'group_trigger_to_delete'
+        self.client.create_group_trigger(gt)
+
+        group_count = len(self.client.list_triggers())
+        # Delete the created group trigger
+        self.client.delete_group_trigger('delete_group_trigger')
+
+        # Compare number of remaining triggers and query the deleted trigger id
+        self.assertEqual(len(self.client.list_triggers()), group_count-1)
+        with self.assertRaises(HTTPError) as e:
+            self.client.get_trigger('delete_group_trigger')
+            self.assertEqual(e.getcode(), 404)
 
     def test_create_groups(self):
         # Create a group trigger
