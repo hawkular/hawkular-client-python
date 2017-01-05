@@ -192,6 +192,7 @@ class HawkularBaseClient:
         try:
             req.get_method = lambda: method
             res = urlopen(req, context=self.context)
+
             if parse_json:
                 if res.getcode() == 200:
                     data = json.load(reader(res), cls=decoder)
@@ -199,6 +200,7 @@ class HawkularBaseClient:
                     data = {}
             else:
                 data = reader(res).read()
+
             return data
 
         except Exception as e:
@@ -212,7 +214,7 @@ class HawkularBaseClient:
         return self._http(url, 'PUT', data, parse_json=parse_json)
 
     def _delete(self, url):
-        return self._http(url, 'DELETE')
+        return self._http(url, 'DELETE', parse_json=False)
 
     def _post(self, url, data):
         return self._http(url, 'POST', data)
