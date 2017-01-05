@@ -210,8 +210,8 @@ class HawkularBaseClient:
             if res:
                 res.close()
 
-    def _put(self, url, data):
-        return self._http(url, 'PUT', data)
+    def _put(self, url, data, parse_json=True):
+        return self._http(url, 'PUT', data, parse_json=parse_json)
 
     def _delete(self, url):
         return self._http(url, 'DELETE', parse_json=False)
