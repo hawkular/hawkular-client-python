@@ -222,6 +222,9 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         self.assertEqual(len(gcc), 1)
         t_m1c = self.client.create_group_member(m1)
         self.assertEqual(t_m1c.type, TriggerType.MEMBER)
+        gm = self.client.get_group_members('a-group-trigger')
+        self.assertEqual(len(gm), 1)
+        self.assertEqual(gm[0].id, 'member1')
 
         # Update group trigger
         t.enabled = True
