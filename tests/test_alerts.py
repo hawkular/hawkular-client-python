@@ -22,6 +22,13 @@ from hawkular.alerts import *
 import os
 from tests import base
 
+try:
+    # Python 3
+    from urllib.error import HTTPError
+except ImportError:
+    # Fall back to Python 2's urllib2
+    from urllib2 import HTTPError
+
 
 class TestAlertsFunctionsBase(unittest.TestCase):
     def setUp(self):
@@ -165,6 +172,23 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         gc_dids = [c.data_id for c in gc]
         self.assertEqual(gc_dids, ['did1', 'did2', 'did3'])
 
+    def test_delete_group_trigger(self):
+        # Create a group trigger
+        gt = Trigger()
+        gt.id = 'delete_group_trigger'
+        gt.name = 'group_trigger_to_delete'
+        self.client.create_group_trigger(gt)
+
+        group_count = len(self.client.list_triggers())
+        # Delete the created group trigger
+        self.client.delete_group_trigger('delete_group_trigger')
+
+        # Compare number of remaining triggers and query the deleted trigger id
+        self.assertEqual(len(self.client.list_triggers()), group_count-1)
+        with self.assertRaises(HTTPError) as e:
+            self.client.get_trigger('delete_group_trigger')
+            self.assertEqual(e.getcode(), 404)
+
     def test_create_groups(self):
         # Create a group trigger
         t = Trigger()
@@ -198,3 +222,12 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         self.assertEqual(len(gcc), 1)
         t_m1c = self.client.create_group_member(m1)
         self.assertEqual(t_m1c.type, TriggerType.MEMBER)
+
+        # Update group trigger
+        t.enabled = True
+        t.severity = Severity.MEDIUM
+
+        self.client.update_group_trigger(t.id, t)
+        gt = self.client.get_trigger(t.id)
+        self.assertEqual(gt.enabled, True)
+        self.assertEqual(gt.severity, Severity.MEDIUM)
