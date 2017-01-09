@@ -46,6 +46,31 @@ class ApiJsonEncoder(json.JSONEncoder):
             return json.JSONEncoder.default(self, obj)
 
 
+class HawkularMetricsError(HTTPError):
+    pass
+
+
+class HawkularMetricsConnectionError(URLError):
+    pass
+
+
+class HawkularMetricsStatusError(ValueError):
+    pass
+
+
+class HawkularHTTPErrorProcessor(HTTPErrorProcessor):
+    """
+    Hawkular-Metrics uses http codes 201, 204
+    """
+
+    def http_response(self, request, response):
+        if response.code in [200, 201, 204]:
+            return response
+        return HTTPErrorProcessor.http_response(self, request, response)
+
+    https_response = http_response
+
+
 class ApiOject:
 
     defaults = dict()
@@ -108,7 +133,6 @@ class HawkularBaseClient:
     Creates new client for Hawkular-Metrics. As tenant_id, give intended tenant_id, even if it's not
     created yet. To change the instance's tenant_id, use tenant(tenant_id) method
     """
-
     def __init__(self,
                  tenant_id,
                  host='localhost',
@@ -119,7 +143,9 @@ class HawkularBaseClient:
                  context=None,
                  token=None,
                  username=None,
-                 password=None):
+                 password=None,
+                 auto_set_legacy_api=True,
+                 authtoken=None):
         """
         A new instance of HawkularMetricsClient is created with the following defaults:
 
@@ -143,6 +169,8 @@ class HawkularBaseClient:
         self.token = token
         self.username = username
         self.password = password
+        self.legacy_api = False
+        self.authtoken = authtoken
 
         opener = build_opener(HawkularHTTPErrorProcessor())
         install_opener(opener)
@@ -155,6 +183,12 @@ class HawkularBaseClient:
         else:
             self.path = path
         self.path = self.path.strip('/')
+
+        # Call the server status endpoint to get the version number,
+        # Use the return sematic version to set the value of legacy_api
+        if auto_set_legacy_api:
+            major, minor, patch = self.query_semantic_version()
+            self.legacy_api = (major == 0 and minor < 16)
 
     def _get_base_url(self):
         return "{0}://{1}:{2}/{3}/".format(self.scheme, self.host, str(self.port), self.path)
@@ -178,6 +212,9 @@ class HawkularBaseClient:
             b64 = base64.b64encode(bytes(self.username + ':' + self.password, encoding='utf-8'))
             req.add_header('Authorization',
                            'Basic {0}'.format(b64))
+
+        if self.authtoken is not None:
+            req.add_header('Hawkular-Admin-Token', self.authtoken)
 
         if not isinstance(data, str):
             data = json.dumps(data, indent=2)
@@ -213,11 +250,11 @@ class HawkularBaseClient:
     def _put(self, url, data, parse_json=True):
         return self._http(url, 'PUT', data, parse_json=parse_json)
 
-    def _delete(self, url):
-        return self._http(url, 'DELETE', parse_json=False)
+    def _delete(self, url, parse_json=False):
+        return self._http(url, 'DELETE', parse_json=parse_json)
 
-    def _post(self, url, data):
-        return self._http(url, 'POST', data)
+    def _post(self, url, data, parse_json=True):
+        return self._http(url, 'POST', data, parse_json=parse_json)
 
     def _get(self, url, **url_params):
         params = urlencode(url_params)
@@ -245,9 +282,52 @@ class HawkularBaseClient:
     def _serialize_object(o):
         return json.dumps(o, cls=ApiJsonEncoder)
 
-    @staticmethod
-    def _handle_error(e):
-        raise e
+    def _handle_error(self, e):
+        if isinstance(e, HTTPError):
+            # Cast to HawkularMetricsError
+            ee = HawkularMetricsError(e.url, e.code, e.msg, e.hdrs, e.fp)
+            err_json = e.read()
 
-    def status(self):
+            try:
+                err_d = json.loads(err_json)
+                ee.msg = err_d['errorMsg']
+            except:
+                # Keep the original payload, couldn't parse it
+                ee.msg = err_json
+            raise ee
+
+        elif isinstance(e, URLError):
+            # Cast to HawkularMetricsConnectionError
+            ee = HawkularMetricsConnectionError()
+            ee.msg = "Error, could not send event(s) to the Hawkular Metrics: " + str(e.reason)
+            raise ee
+        elif isinstance(e, KeyError):
+            # Cast to HawkularMetricsStatusError
+            ee = HawkularMetricsStatusError
+            ee.msg = "Error, unable to get implementation version for metrics: " + str(e.reason)
+            raise ee
+        elif isinstance(e, ValueError):
+            # Cast to HawkularMetricsStatusError
+            ee = HawkularMetricsStatusError
+            ee.msg = "Error, unable to determine implementation version for metrics: " + str(e.reason)
+            raise ee
+        else:
+            raise e
+    """
+    General information related queries
+    """
+    def query_semantic_version(self):
+        status_hash = self.query_status()
+        try:
+            version = status_hash['Implementation-Version']
+            major, minor, patch = map(int, version.split('.')[:3])
+        except Exception as e:
+            self._handle_error(e)
+        return major, minor, patch
+
+    def query_status(self):
         return self._get(self._get_status_url())
+
+    @staticmethod
+    def quote(value,safe=''):
+        return quote(value, safe)
