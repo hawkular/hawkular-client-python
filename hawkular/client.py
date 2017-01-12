@@ -187,7 +187,7 @@ class HawkularBaseClient:
         # Call the server status endpoint to get the version number,
         # Use the return sematic version to set the value of legacy_api
         if auto_set_legacy_api:
-            major, minor, patch = self.query_semantic_version()
+            major, minor = self.query_semantic_version()
             self.legacy_api = (major == 0 and minor < 16)
 
     def _get_base_url(self):
@@ -320,10 +320,10 @@ class HawkularBaseClient:
         status_hash = self.query_status()
         try:
             version = status_hash['Implementation-Version']
-            major, minor, patch = map(int, version.split('.')[:3])
+            major, minor = map(int, version.split('.')[:2])
         except Exception as e:
             self._handle_error(e)
-        return major, minor, patch
+        return major, minor
 
     def query_status(self):
         return self._get(self._get_status_url())

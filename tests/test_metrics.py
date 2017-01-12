@@ -260,7 +260,7 @@ class MetricsTestCase(TestMetricFunctionsBase):
         self.assertEqual(0, len(m))
 
     def test_query_semantic_version(self):
-        major, minor, patch = self.client.query_semantic_version()
+        major, minor = self.client.query_semantic_version()
         self.assertTrue(0 <= major <= 1000)
         self.assertTrue(0 <= minor <= 1000)
 
