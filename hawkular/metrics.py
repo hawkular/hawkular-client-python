@@ -27,15 +27,8 @@ try:
 except ImportError:
     import json
 
-try:
-    # Python 3
-    from urllib.request import Request, urlopen, build_opener, install_opener, HTTPErrorProcessor
-    from urllib.error import HTTPError, URLError
-    from urllib.parse import quote, urlencode
-except ImportError:
-    # Fall back to Python 2's urllib2
-    from urllib2 import Request, urlopen, URLError, HTTPError, HTTPErrorProcessor, build_opener, install_opener
-    from urllib import quote, urlencode
+from hawkular.client import ApiOject, HawkularBaseClient, HawkularMetricsError
+from hawkular.client import HawkularMetricsConnectionError, HawkularMetricsStatusError
 
 class MetricType:
     Gauge = 'gauges'
@@ -61,90 +54,14 @@ class Availability:
     Up = 'up'
     Unknown = 'unknown'
 
-class HawkularMetricsError(HTTPError):
-    pass
-        
-class HawkularMetricsConnectionError(URLError):
-    pass
-
-class HawkularMetricsStatusError(ValueError):
-    pass
-
-class HawkularHTTPErrorProcessor(HTTPErrorProcessor):
-    """
-    Hawkular-Metrics uses http codes 201, 204
-    """
-    def http_response(self, request, response):
-
-        if response.code in [200, 201, 204]:
-            return response
-        return HTTPErrorProcessor.http_response(self, request, response)
-  
-    https_response = http_response
-
-class HawkularMetricsClient:
-    """
-    Creates new client for Hawkular-Metrics. As tenant_id, give intended tenant_id, even if it's not
-    created yet. To change the instance's tenant_id, use tenant(tenant_id) method
-    """
-    def __init__(self,
-                 tenant_id,
-                 host='localhost',
-                 port=8080,
-                 path='hawkular/metrics',
-                 scheme='http',
-                 cafile=None,
-                 context=None,
-                 token=None,
-                 username=None,
-                 password=None,
-                 auto_set_legacy_api=True,
-                 authtoken=None):
-        """
-        A new instance of HawkularMetricsClient is created with the following defaults:
-
-        host = localhost
-        port = 8081
-        path = hawkular-metrics
-        scheme = http
-        cafile = None
-
-        The url that is called by the client is:
-
-        {scheme}://{host}:{port}/{2}/
-        """
-        self.tenant_id = tenant_id
-        self.host = host
-        self.port = port
-        self.path = path
-        self.cafile = cafile
-        self.scheme = scheme
-        self.context = context
-        self.token = token
-        self.username = username
-        self.password = password
-        self.legacy_api = False
-        self.authtoken = authtoken
-
-        opener = build_opener(HawkularHTTPErrorProcessor())
-        install_opener(opener)
-
-        # Call the server status endpoint to get the version number,
-        # Use the return sematic version to set the value of legacy_api
-        if auto_set_legacy_api:
-            major, minor, patch = self.query_semantic_version()
-            self.legacy_api = (major == 0 and minor < 16)
-
+class HawkularMetricsClient(HawkularBaseClient):
     """
     Internal methods
     """
     @staticmethod
     def _clean_metric_id(metric_id):
-        return quote(metric_id, '')
+        return HawkularBaseClient.quote(metric_id)
 
-    def _get_base_url(self):
-        return "{0}://{1}:{2}/{3}/".format(self.scheme, self.host, str(self.port), self.path)
-    
     def _get_url(self, metric_type=None):
         if metric_type is None:
             metric_type = MetricType._Metrics
@@ -172,101 +89,6 @@ class HawkularMetricsClient:
     @staticmethod
     def _transform_tags(**tags):
         return ','.join("%s:%s" % (key,val) for (key,val) in tags.items())
-    
-    def _http(self, url, method, data=None):
-        res = None
-
-        try:
-            req = Request(url=url)
-            req.add_header('Content-Type', 'application/json')
-            req.add_header('Hawkular-Tenant', self.tenant_id)
-            req.add_header('Host', self.host)
-
-            if self.token is not None:
-                req.add_header('Authorization', 'Bearer {0}'.format(self.token))
-            elif self.username is not None:
-                req.add_header('Authorization', 'Basic {0}'.format(base64.b64encode(self.username + b':' + self.password)))
-
-            if self.authtoken is not None:
-                req.add_header('Hawkular-Admin-Token', self.authtoken)
-
-            if not isinstance(data, str):
-                data = json.dumps(data, indent=2)
-
-            # writer = codecs.getencoder('utf-8')
-            reader = codecs.getreader('utf-8')
-
-            if data:
-                try:
-                    req.add_data(data)
-                except AttributeError:
-                    req.data = data.encode('utf-8')
-
-            req.get_method = lambda: method
-            res = urlopen(req, context = self.context)
-            if method == 'GET':
-                if res.getcode() == 200:
-                    data = json.load(reader(res))
-
-                elif res.getcode() == 204:
-                    data = {}
-
-                return data
-
-        except Exception as e:
-            self._handle_error(e)
-
-        finally:
-            if res:
-                res.close()        
-    
-    def _put(self, url, data):
-        self._http(url, 'PUT', data)
-
-    def _delete(self, url):
-        self._http(url, 'DELETE')    
-        
-    def _post(self, url, data):
-        self._http(url, 'POST', data)
-
-    def _get(self, url, **url_params):
-        params = urlencode(url_params)
-        if len(params) > 0:
-            url = '{0}?{1}'.format(url, params)
-
-        return self._http(url, 'GET')        
-        
-    def _handle_error(self, e):
-        if isinstance(e, HTTPError):
-            # Cast to HawkularMetricsError
-            e.__class__ = HawkularMetricsError
-            err_json = e.read()
-
-            try:
-                err_d = json.loads(err_json)
-                e.msg = err_d['errorMsg']
-            except:
-                # Keep the original payload, couldn't parse it
-                e.msg = err_json
-
-            raise e
-        elif isinstance(e, URLError):
-            # Cast to HawkularMetricsConnectionError
-            e.__class__ = HawkularMetricsConnectionError
-            e.msg = "Error, could not send event(s) to the Hawkular Metrics: " + str(e.reason)
-            raise e
-        elif isinstance(e, KeyError):
-            # Cast to HawkularMetricsStatusError
-            e.__class__ = HawkularMetricsStatusError
-            e.msg = "Error, unable to get implementation version for metrics: " + str(e.reason)
-            raise e
-        elif isinstance(e, ValueError):
-            # Cast to HawkularMetricsStatusError
-            e.__class__ = HawkularMetricsStatusError
-            e.msg = "Error, unable to determine implementation version for metrics: " + str(e.reason)
-            raise e
-        else:
-            raise e
         
     def _isfloat(value):
         try:
@@ -306,7 +128,7 @@ class HawkularMetricsClient:
 
         # This isn't transactional, but .. ouh well. One can always repost everything.
         for l in r:
-            self._post(self._get_metrics_raw_url(self._get_url(l)), r[l])
+            self._post(self._get_metrics_raw_url(self._get_url(l)), r[l],parse_json=False)
 
     def push(self, metric_type, metric_id, value, timestamp=None):
         """
@@ -396,7 +218,7 @@ class HawkularMetricsClient:
         """
         Replace the metric_id's tags with given **tags
         """
-        self._put(self._get_metrics_tags_url(self._get_metrics_single_url(metric_type, metric_id)), tags)
+        self._put(self._get_metrics_tags_url(self._get_metrics_single_url(metric_type, metric_id)), tags, parse_json=False)
 
     def delete_metric_tags(self, metric_type, metric_id, **deleted_tags):
         """
@@ -428,21 +250,6 @@ class HawkularMetricsClient:
 
         self._post(self._get_tenants_url(), json.dumps(item, indent=2))
 
-    """
-    General information related queries
-    """
-
-    def query_semantic_version(self):
-        status_hash = self.query_status()
-        try:
-            version = status_hash['Implementation-Version']
-            major, minor, patch = map(int, version.split('.')[:3])
-        except Exception as e:
-            self._handle_error(e)
-        return major, minor, patch
-
-    def query_status(self):
-        return self._get(self._get_status_url())
 
 """
 Static methods
