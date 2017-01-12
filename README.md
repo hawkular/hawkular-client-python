@@ -1,7 +1,7 @@
 hawkular-client-python
 =========================
 
-This repository includes the necessary Python client libraries to access Hawkular remotely. Currently we only have a driver for the metrics component as it's the most mature of the components.
+This repository includes the necessary Python client libraries to access Hawkular remotely. Currently we only have a driver for the metrics and alerts components.
 
 ## Introduction
 
@@ -10,7 +10,7 @@ Python client to access Hawkular-Metrics, an abstraction to invoke REST-methods 
 ## License and copyright
 
 ```
-   Copyright 2015-2016 Red Hat, Inc. and/or its affiliates
+   Copyright 2015-2017 Red Hat, Inc. and/or its affiliates
    and other contributors.
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,7 +30,7 @@ Python client to access Hawkular-Metrics, an abstraction to invoke REST-methods 
 
 To install, run ``python setup.py install`` if you installed from source code, or ``pip install hawkular-client`` if using pip.
 
-## Usage
+## Metrics Usage
 
 To use hawkular-client-python in your own program, after installation import from hawkular the class HawkularMetricsClient and instantiate it. After this, push dicts with keys id, timestamp and value with put or use assistant method create to send events. pydoc gives the list of allowed parameters for each function.
 

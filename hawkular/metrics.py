@@ -58,10 +58,6 @@ class HawkularMetricsClient(HawkularBaseClient):
     """
     Internal methods
     """
-    @staticmethod
-    def _clean_metric_id(metric_id):
-        return HawkularBaseClient.quote(metric_id)
-
     def _get_url(self, metric_type=None):
         if metric_type is None:
             metric_type = MetricType._Metrics
@@ -69,7 +65,7 @@ class HawkularMetricsClient(HawkularBaseClient):
         return self._get_base_url() + '{0}'.format(metric_type)
 
     def _get_metrics_single_url(self, metric_type, metric_id):
-        return self._get_url(metric_type) + '/{0}'.format(self._clean_metric_id(metric_id))
+        return self._get_url(metric_type) + '/{0}'.format(HawkularBaseClient.quote(metric_id))
 
     def _get_metrics_raw_url(self, metrics_url):
         return metrics_url + '/data' if self.legacy_api else metrics_url + '/raw'
@@ -113,7 +109,7 @@ class HawkularMetricsClient(HawkularBaseClient):
         Send multiple different metric_ids to the server in a single batch. Metrics can be a mixture
         of types.
 
-        data is a dict or a list of dicts created with create_metric(metric_type, metric_id, datapoints)
+        :param data: A dict or a list of dicts created with create_metric(metric_type, metric_id, datapoints)
         """
         if not isinstance(data, list):
             data = [data]
@@ -136,13 +132,22 @@ class HawkularMetricsClient(HawkularBaseClient):
 
         This method is an assistant method for the put method by removing the need to
         create data structures first.
+
+        :param metric_type: MetricType to be matched (required)
+        :param metric_id: Exact string matching metric id
+        :param value: Datapoint value (depending on the MetricType)
+        :param timestamp: Timestamp of the datapoint. If left empty, uses current client time.
         """
         item = create_metric(metric_type, metric_id, create_datapoint(value, timestamp))
         self.put(item)
 
     def query_metric(self, metric_type, metric_id, **query_options):
         """
-        Query for metrics from the server. For possible query_options, see the Hawkular-Metrics documentation.
+        Query for metrics datapoints from the server.
+
+        :param metric_type: MetricType to be matched (required)
+        :param metric_id: Exact string matching metric id
+        :param query_options: For possible query_options, see the Hawkular-Metrics documentation.
         """
         return self._get(
             self._get_metrics_raw_url(
@@ -150,15 +155,34 @@ class HawkularMetricsClient(HawkularBaseClient):
             **query_options)
 
     def query_metric_stats(self, metric_type, metric_id, **query_options):
+        """
+        Query for metric aggregates from the server. This is called buckets in the Hawkular-Metrics documentation.
+
+        :param metric_type: MetricType to be matched (required)
+        :param metric_id: Exact string matching metric id
+        :param query_options: For possible query_options, see the Hawkular-Metrics documentation.
+        """
         return self._get(
             self._get_metrics_stats_url(
                 self._get_metrics_single_url(metric_type, metric_id)),
             **query_options)
+
+    def query_metric_definition(self, metric_type, metric_id):
+        """
+        Query definition of a single metric id.
+
+        :param metric_type: MetricType to be matched (required)
+        :param metric_id: Exact string matching metric id
+        """
+        return self._get(self._get_metrics_single_url(metric_type, metric_id))
     
     def query_metric_definitions(self, metric_type=None, id_filter=None, **tags):
         """
-        Query available metric definitions. Available query options are id_filter for id filtering and tags (dict) as tag based query.
-        Tags filtering is required for the id filtering to work.
+        Query available metric definitions.
+
+        :param metric_type: A MetricType to be queried. If left to None, matches all the MetricTypes
+        :param id_filter: Filter the id with regexp is tag filtering is used, otherwise a list of exact metric ids
+        :param tags: A dict of tag key/value pairs. Uses Hawkular-Metrics tag query language for syntax
         """
         if id is not None and tags is None:
             raise HawkularMetricsError('Tags query is required when id filter is used')
@@ -175,8 +199,10 @@ class HawkularMetricsClient(HawkularBaseClient):
 
     def query_tag_values(self, metric_type=None, **tags):
         """
-        Query for possible tag values. **tags is a dict which has tagname as key and regexp tagvalue as value. See Hawkular-Metrics
-        tag query language for more detailed definition.
+        Query for possible tag values.
+
+        :param metric_type: A MetricType to be queried. If left to None, matches all the MetricTypes
+        :param tags: A dict of tag key/value pairs. Uses Hawkular-Metrics tag query language for syntax
         """
         tagql = self._transform_tags(**tags)
 
@@ -186,6 +212,10 @@ class HawkularMetricsClient(HawkularBaseClient):
         """
         Create metric definition with custom definition. **tags should be a set of tags, such as
         units, env ..
+
+        :param metric_type: MetricType of the new definition
+        :param metric_id: metric_id is the string index of the created metric
+        :param tags: Key/Value tag values of the new metric
         """
         item = { 'id': metric_id }
         if len(tags) > 0:
@@ -209,7 +239,10 @@ class HawkularMetricsClient(HawkularBaseClient):
         
     def query_metric_tags(self, metric_type, metric_id):
         """
-        Returns a list of tags in the metric definition of metric_id
+        Returns a list of tags in the metric definition.
+
+        :param metric_type: MetricType to be matched (required)
+        :param metric_id: Exact string matching metric id
         """
         definition = self._get(self._get_metrics_tags_url(self._get_metrics_single_url(metric_type, metric_id)))
         return definition
@@ -217,12 +250,20 @@ class HawkularMetricsClient(HawkularBaseClient):
     def update_metric_tags(self, metric_type, metric_id, **tags):
         """
         Replace the metric_id's tags with given **tags
+
+        :param metric_type: MetricType to be matched (required)
+        :param metric_id: Exact string matching metric id
+        :param tags: Updated key/value tag values of the metric
         """
         self._put(self._get_metrics_tags_url(self._get_metrics_single_url(metric_type, metric_id)), tags, parse_json=False)
 
     def delete_metric_tags(self, metric_type, metric_id, **deleted_tags):
         """
         Delete one or more tags from the metric definition. 
+
+        :param metric_type: MetricType to be matched (required)
+        :param metric_id: Exact string matching metric id
+        :param deleted_tags: List of deleted tag names. Values can be set to anything
         """
         tags = self._transform_tags(**deleted_tags)
         tags_url = self._get_metrics_tags_url(self._get_metrics_single_url(metric_type, metric_id)) + '/{0}'.format(tags)
@@ -243,13 +284,14 @@ class HawkularMetricsClient(HawkularBaseClient):
         """
         Create a tenant. Currently nothing can be set (to be fixed after the master
         version of Hawkular-Metrics has fixed implementation.
+
+        :param retentions: A set of retention settings, see Hawkular-Metrics documentation for more info
         """        
         item = { 'id': tenant_id }
         if retentions is not None:
             item['retentions'] = retentions
 
         self._post(self._get_tenants_url(), json.dumps(item, indent=2))
-
 
 """
 Static methods
@@ -262,8 +304,11 @@ def time_millis():
 
 def create_datapoint(value, timestamp=None, **tags):
     """
-    Creates a single datapoint dict with a value, timestamp (optional - filled by the method if missing)
-    and tags (optional)
+    Creates a single datapoint dict with a value, timestamp and tags.
+
+    :param value: Value of the datapoint. Type depends on the id's MetricType
+    :param timestamp: Optional timestamp of the datapoint. Uses client current time if not set. Millisecond accuracy
+    :param tags: Optional datapoint tags. Not to be confused with metric definition tags
     """
     if timestamp is None:
         timestamp = time_millis()
@@ -278,7 +323,11 @@ def create_datapoint(value, timestamp=None, **tags):
 
 def create_metric(metric_type, metric_id, data):
     """
-    Create Hawkular-Metrics' submittable structure, data is a datapoint or list of datapoints
+    Create Hawkular-Metrics' submittable structure.
+
+    :param metric_type: MetricType to be matched (required)
+    :param metric_id: Exact string matching metric id
+    :param data: A datapoint or a list of datapoints created with create_datapoint(value, timestamp, tags)
     """
     if not isinstance(data, list):
         data = [data]
