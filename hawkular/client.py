@@ -209,7 +209,7 @@ class HawkularBaseClient:
         if self.token is not None:
             req.add_header('Authorization', 'Bearer {0}'.format(self.token))
         elif self.username is not None:
-            b64 = base64.b64encode(bytes(self.username + ':' + self.password, encoding='utf-8'))
+            b64 = base64.b64encode((self.username + ':' + self.password).encode('utf-8'))
             req.add_header('Authorization',
                            'Basic {0}'.format(b64))
 
