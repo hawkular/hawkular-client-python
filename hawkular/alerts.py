@@ -216,3 +216,11 @@ class HawkularAlertsClient(HawkularBaseClient):
         data = self._serialize_object(dampening)
         url = self._service_url(['triggers', 'groups', group_id, 'dampenings'])
         return Dampening(self._post(url, data))
+
+    def delete_group_dampening(self, group_id, dampening_id):
+        """
+        Delete an existing group dampening
+        :param group_id: Group Trigger id to be retrieved
+        :param dampening_id: id of the Dampening to be deleted
+        """
+        self._delete(self._service_url(['triggers', 'groups', group_id, 'dampenings', dampening_id]))
