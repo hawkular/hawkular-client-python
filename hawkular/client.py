@@ -210,8 +210,7 @@ class HawkularBaseClient:
             req.add_header('Authorization', 'Bearer {0}'.format(self.token))
         elif self.username is not None:
             b64 = base64.b64encode((self.username + ':' + self.password).encode('utf-8'))
-            req.add_header('Authorization',
-                           'Basic {0}'.format(b64))
+            req.add_header('Authorization', 'Basic {0}'.format(b64.decode()))
 
         if self.authtoken is not None:
             req.add_header('Hawkular-Admin-Token', self.authtoken)
@@ -298,17 +297,17 @@ class HawkularBaseClient:
 
         elif isinstance(e, URLError):
             # Cast to HawkularMetricsConnectionError
-            ee = HawkularMetricsConnectionError()
+            ee = HawkularMetricsConnectionError(e)
             ee.msg = "Error, could not send event(s) to the Hawkular Metrics: " + str(e.reason)
             raise ee
         elif isinstance(e, KeyError):
             # Cast to HawkularMetricsStatusError
-            ee = HawkularMetricsStatusError
+            ee = HawkularMetricsStatusError(e)
             ee.msg = "Error, unable to get implementation version for metrics: " + str(e.reason)
             raise ee
         elif isinstance(e, ValueError):
             # Cast to HawkularMetricsStatusError
-            ee = HawkularMetricsStatusError
+            ee = HawkularMetricsStatusError(e)
             ee.msg = "Error, unable to determine implementation version for metrics: " + str(e.reason)
             raise ee
         else:

@@ -20,6 +20,14 @@ import unittest
 import uuid
 from  hawkular.metrics import *
 import os
+import base64
+
+try:
+    import mock
+    # from mock import patch, MagicMock
+except ImportError:
+    import unittest.mock as mock
+    # from unittest.mock import patch, MagicMock
 
 from tests import base
 
@@ -53,6 +61,27 @@ class TenantTestCase(TestMetricFunctionsBase):
         expect = {'id': tenant, 'retentions': {'gauge': 8, 'availability': 30}}
         self.assertIn(expect, self.client.query_tenants())
 
+class MetricsMockUpCase(unittest.TestCase):
+
+    @mock.patch('hawkular.client.urlopen', autospec=True)
+    @mock.patch('hawkular.client.HawkularBaseClient.query_status')
+    def test_verify(self, m_query_status, m_urlopen):
+        m_query_status.return_value = {'Implementation-Version': '0.23.0'}
+        c = HawkularMetricsClient(tenant_id='aa', username='a', password='b')
+
+        c.query_tenants()
+        req = m_urlopen.call_args[0][0]
+        authr = req.get_header('Authorization')
+        self.assertEqual('Basic', authr[:5])
+        self.assertEqual('YTpi', authr[6:])
+
+        c = HawkularMetricsClient(tenant_id='aa', token='AABBCCDD', authtoken='EEFFGGHH')
+        c.query_tenants()
+        req = m_urlopen.call_args[0][0]
+
+        self.assertEqual('Bearer AABBCCDD', req.get_header('Authorization'))
+        # Incorrect capitalization due to urllib2
+        self.assertEqual('EEFFGGHH', req.get_header('Hawkular-admin-token'))
 
 class MetricsTestCase(TestMetricFunctionsBase):
     """
