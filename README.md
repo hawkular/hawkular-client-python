@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/hawkular/hawkular-client-python.svg?branch=master)](https://travis-ci.org/hawkular/hawkular-client-python)
+
 hawkular-client-python
 =========================
 
