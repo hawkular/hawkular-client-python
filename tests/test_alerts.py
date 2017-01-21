@@ -237,6 +237,11 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         self.assertEqual(gd[0].trigger_mode, 'FIRING')
         self.assertEqual(gd[0].type, 'STRICT')
 
+        # Delete group trigger dampening
+        self.client.delete_group_dampening('a-group-trigger', gd[0].dampening_id)
+        gt = self.client.get_trigger('a-group-trigger', full=True)
+        self.assertFalse(gt.dampenings)
+
         # Update group trigger
         t.enabled = True
         t.severity = Severity.MEDIUM
