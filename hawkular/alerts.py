@@ -206,3 +206,13 @@ class HawkularAlertsClient(HawkularBaseClient):
         url = self._service_url(['triggers', trigger_id, 'dampenings'])
         data = self._get(url)
         return Dampening.list_to_object_list(data)
+
+    def create_group_dampening(self, group_id, dampening):
+        """
+        Create a new group dampening
+        :param group_id: Group Trigger id attached to dampening
+        :return: Group Dampening created
+        """
+        data = self._serialize_object(dampening)
+        url = self._service_url(['triggers', 'groups', group_id, 'dampenings'])
+        return Dampening(self._post(url, data))

@@ -216,6 +216,11 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         m1.member_name = 'Member One'
         m1.data_id_map = {'my-metric-id': 'my-metric-id-member1'}
 
+        dampening = Dampening()
+        dampening.dampening_id = 'a-group-dampening'
+        dampening.trigger_mode = TriggerMode.FIRING
+        dampening.type = DampeningType.STRICT
+
         tc = self.client.create_group_trigger(t)
         self.assertEqual(tc.type, TriggerType.GROUP)
         gcc = self.client.create_group_conditions(t.id, TriggerMode.FIRING, gc)
@@ -225,6 +230,12 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         gm = self.client.get_group_members('a-group-trigger')
         self.assertEqual(len(gm), 1)
         self.assertEqual(gm[0].id, 'member1')
+        self.client.create_group_dampening('a-group-trigger', dampening)
+        gt = self.client.get_trigger('a-group-trigger', full=True)
+        gd = gt.dampenings
+        self.assertEqual(len(gd), 1)
+        self.assertEqual(gd[0].trigger_mode, 'FIRING')
+        self.assertEqual(gd[0].type, 'STRICT')
 
         # Update group trigger
         t.enabled = True
