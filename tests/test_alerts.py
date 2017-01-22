@@ -217,9 +217,9 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         m1.data_id_map = {'my-metric-id': 'my-metric-id-member1'}
 
         dampening = Dampening()
-        dampening.dampening_id = 'a-group-dampening'
         dampening.trigger_mode = TriggerMode.FIRING
         dampening.type = DampeningType.STRICT
+        dampening.trigger_id = 'a-group-trigger'
 
         tc = self.client.create_group_trigger(t)
         self.assertEqual(tc.type, TriggerType.GROUP)
@@ -230,15 +230,24 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         gm = self.client.get_group_members('a-group-trigger')
         self.assertEqual(len(gm), 1)
         self.assertEqual(gm[0].id, 'member1')
+
+        # Create group trigger dampening
         self.client.create_group_dampening('a-group-trigger', dampening)
         gt = self.client.get_trigger('a-group-trigger', full=True)
-        gd = gt.dampenings
-        self.assertEqual(len(gd), 1)
-        self.assertEqual(gd[0].trigger_mode, 'FIRING')
-        self.assertEqual(gd[0].type, 'STRICT')
+        gds = gt.dampenings
+        self.assertEqual(len(gds), 1)
+        self.assertEqual(gds[0].trigger_mode, 'FIRING')
+        self.assertEqual(gds[0].type, 'STRICT')
+
+        # Update group trigger dampening
+        dampening.type = DampeningType.STRICT_TIME
+        dampening.eval_time_setting = 5
+        dampening.dampening_id = gds[0].dampening_id
+        gd = self.client.update_group_dampening('a-group-trigger', dampening.dampening_id, dampening)
+        self.assertEqual(gd.type, 'STRICT_TIME')
 
         # Delete group trigger dampening
-        self.client.delete_group_dampening('a-group-trigger', gd[0].dampening_id)
+        self.client.delete_group_dampening('a-group-trigger', dampening.dampening_id)
         gt = self.client.get_trigger('a-group-trigger', full=True)
         self.assertFalse(gt.dampenings)
 
