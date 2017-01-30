@@ -231,6 +231,11 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         self.assertEqual(len(gm), 1)
         self.assertEqual(gm[0].id, 'member1')
 
+        # Delete group member trigger
+        self.client.delete_trigger('member1')
+        gm = self.client.get_group_members('a-group-trigger')
+        self.assertFalse(gm)
+
         # Create group trigger dampening
         self.client.create_group_dampening('a-group-trigger', dampening)
         gt = self.client.get_trigger('a-group-trigger', full=True)
