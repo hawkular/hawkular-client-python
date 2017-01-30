@@ -152,6 +152,11 @@ class HawkularAlertsClient(HawkularBaseClient):
             returned_dict = self._get(self._service_url(['triggers', trigger_id]))
             return Trigger(returned_dict)
 
+    def delete_trigger(self, trigger_id):
+        """ Delete an existing standard or group member trigger
+        """
+        self._delete(self._service_url(['triggers', trigger_id]))
+
     def create_group_trigger(self, trigger):
         data = self._serialize_object(trigger)
         return Trigger(self._post(self._service_url(['triggers', 'groups']), data))
