@@ -19,6 +19,7 @@ Source0:        https://pypi.python.org/packages/source/h/%{srcname}/%{srcname}-
 BuildArch:      noarch
 BuildRequires:  python2-devel
 BuildRequires:  python-setuptools
+BuildRequires:  python2-pypandoc
 ## For tests
 #BuildRequires:  python-mox
 #Requires:       python-dateutil
@@ -36,6 +37,7 @@ Summary:        Python 3 client to communicate with Hawkular server over HTTP(S)
 BuildRequires:  python3-devel
 BuildRequires:  python3-setuptools
 BuildRequires:  python-tools
+BuildRequires:  python3-pypandoc
 # For tests
 # python-mox doesn't work with python3
 # https://bugzilla.redhat.com/show_bug.cgi?id=1209203
@@ -51,7 +53,7 @@ on the server endpoint using urllib2. No external dependencies.
 
 %prep
 %setup -qc
-mv %{srcname}-%{version} python2
+mv python-%{srcname}-%{version} python2
 %if %{with python3}
 cp -a python2 python3
 2to3 --write --nobackups python3
@@ -82,17 +84,6 @@ pushd python2
 popd
 
 
-%check
-pushd python2
-%{__python2} setup.py test
-popd
-%if %{with python3}
-pushd python3
-%{__python3} setup.py test
-popd
-%endif # with python3
-
- 
 %files
 %doc python2/README.rst
 %{python2_sitelib}/*
