@@ -150,7 +150,7 @@ class HawkularBaseClient:
         A new instance of HawkularMetricsClient is created with the following defaults:
 
         host = localhost
-        port = 8081
+        port = 8080
         path = hawkular-metrics
         scheme = http
         cafile = None
