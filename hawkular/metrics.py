@@ -1,5 +1,5 @@
 """
-   Copyright 2015-2016 Red Hat, Inc. and/or its affiliates
+   Copyright 2015-2017 Red Hat, Inc. and/or its affiliates
    and other contributors.
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -65,7 +65,7 @@ class HawkularMetricsClient(HawkularBaseClient):
         return self._get_base_url() + '{0}'.format(metric_type)
 
     def _get_metrics_single_url(self, metric_type, metric_id):
-        return self._get_url(metric_type) + '/{0}'.format(HawkularBaseClient.quote(metric_id))
+        return self._get_single_id_url(self._get_url(metric_type), metric_id)
 
     def _get_metrics_raw_url(self, metrics_url):
         return metrics_url + '/data' if self.legacy_api else metrics_url + '/raw'
@@ -81,6 +81,9 @@ class HawkularMetricsClient(HawkularBaseClient):
 
     def _get_status_url(self):
         return self._get_base_url() + 'status'
+
+    def _get_single_id_url(self, previous_url, id):
+        return previous_url + '/{0}'.format(HawkularBaseClient.quote(metric_id))
 
     @staticmethod
     def _transform_tags(**tags):
@@ -184,13 +187,13 @@ class HawkularMetricsClient(HawkularBaseClient):
         :param id_filter: Filter the id with regexp is tag filtering is used, otherwise a list of exact metric ids
         :param tags: A dict of tag key/value pairs. Uses Hawkular-Metrics tag query language for syntax
         """
-        if id is not None and tags is None:
-            raise HawkularMetricsError('Tags query is required when id filter is used')
-
         params = {}
 
+        if id_filter is not None:
+            params['id'] = id_filter
+
         if metric_type is not None:
-            params = { 'type': MetricType.short(metric_type) }
+            params['type'] = MetricType.short(metric_type)
 
         if len(tags) > 0:
             params['tags'] = self._transform_tags(**tags)
@@ -220,7 +223,7 @@ class HawkularMetricsClient(HawkularBaseClient):
         item = { 'id': metric_id }
         if len(tags) > 0:
             # We have some arguments to pass..
-            data_retention = tags.pop('dataRetention',None)
+            data_retention = tags.pop('dataRetention', None)
             if data_retention is not None:
                 item['dataRetention'] = data_retention
 
@@ -292,6 +295,13 @@ class HawkularMetricsClient(HawkularBaseClient):
             item['retentions'] = retentions
 
         self._post(self._get_tenants_url(), json.dumps(item, indent=2))
+
+    def delete_tenant(self, tenant_id):
+        """
+        Asynchronously deletes a tenant and all the data associated with the tenant.
+        :param tenant_id: Tenant id to be sent for deletion process
+        """
+        self._delete(self._get_single_id_url(self._get_tenants_url(), tenant_id))
 
 """
 Static methods
