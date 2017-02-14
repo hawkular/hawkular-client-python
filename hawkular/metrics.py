@@ -83,7 +83,7 @@ class HawkularMetricsClient(HawkularBaseClient):
         return self._get_base_url() + 'status'
 
     def _get_single_id_url(self, previous_url, id):
-        return previous_url + '/{0}'.format(HawkularBaseClient.quote(metric_id))
+        return previous_url + '/{0}'.format(HawkularBaseClient.quote(id))
 
     @staticmethod
     def _transform_tags(**tags):
