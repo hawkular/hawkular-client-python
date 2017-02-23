@@ -277,6 +277,28 @@ class MetricsTestCase(TestMetricFunctionsBase):
         d = self.client.query_metric(MetricType.Gauge, 'test.query.gauge.1', start=(t - 1000))
         self.assertEqual(1, len(d))
 
+    def test_stats_queries(self):
+        self.client.create_metric_definition(MetricType.Gauge, 'test.buckets.1', units='bytes', env='unittest')
+        self.client.create_metric_definition(MetricType.Gauge, 'test.buckets.2', units='bytes', env='unittest')
+
+        t = time_millis()
+        dps = []
+
+        for i in range(0, 10):
+            t = t - 1000
+            val = 1.45 * i
+            dps.append(create_datapoint(val, timestamp=t))
+
+        self.client.put(create_metric(MetricType.Gauge, 'test.buckets.1', dps))
+        self.client.put(create_metric(MetricType.Gauge, 'test.buckets.2', [create_datapoint(2.4)]))
+
+        # Read single stats bucket
+        bp = self.client.query_metric_stats(MetricType.Gauge, 'test.buckets.1', buckets=1, tags=create_tags_filter(units='bytes', env='unittest'), percentiles=create_percentiles_filter(90.0, 99.0))
+
+        self.assertEqual(1, len(bp), "Only one bucket was requested")
+        self.assertEqual(10, bp[0]['samples'])
+        self.assertEqual(2, len(bp[0]['percentiles']))
+
     def test_tenant_changing(self):
         self.client.create_metric_definition(MetricType.Availability, 'test.tenant.avail.1')
         # Fetch metrics and check that it did appear

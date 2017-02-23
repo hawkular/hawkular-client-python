@@ -343,4 +343,15 @@ def create_metric(metric_type, metric_id, data):
         data = [data]
     
     return { 'type': metric_type,'id': metric_id, 'data': data }
+
+def create_percentiles_filter(*percentiles):
+    """
+    Create percentiles filter from a list of float64 percentile values
+    """
+    return ','.join("%s" % p for p in percentiles)
         
+def create_tags_filter(**tags):
+    """
+    Transform a set of parameters to a tag query language filter
+    """
+    return HawkularMetricsClient._transform_tags(**tags)
