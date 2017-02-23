@@ -8,12 +8,12 @@
 %endif
 
 Name:           python-%{srcname}
-Version:        0.5.1
+Version:        0.5.2
 Release:        1%{?dist}
 Summary:        Python client to communicate with Hawkular server over HTTP(S)
 
 License:        ASL 2.0
-URL:            https://github.com/google/%{srcname}
+URL:            https://github.com/hawkular/%{srcname}-python
 Source0:        https://pypi.python.org/packages/source/h/%{srcname}/%{srcname}-%{version}.tar.gz
 
 BuildArch:      noarch
@@ -95,6 +95,9 @@ popd
 %endif # with python3
 
 %changelog
+* Thu Feb 23 2017 Michael Burman <miburman@redhat.com> - 0.5.2-1
+- Update to 0.5.2
+
 * Tue Jan 24 2017 Troy Dawson <tdawson@redhat.com> - 0.5.1-1
 - Update to 0.5.1
 
