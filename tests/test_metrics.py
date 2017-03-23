@@ -21,6 +21,7 @@ import uuid
 from  hawkular.metrics import *
 import os
 import base64
+from datetime import datetime, timedelta
 
 try:
     import mock
@@ -196,7 +197,8 @@ class MetricsTestCase(TestMetricFunctionsBase):
         self.client.push(MetricType.Gauge, 'test.gauge.single.tags', value)
 
         # Fetch results
-        data = self.client.query_metric(MetricType.Gauge, 'test.gauge.single.tags')
+        now = datetime.utcnow()
+        data = self.client.query_metric(MetricType.Gauge, 'test.gauge.single.tags', start=now-timedelta(minutes = 1), end=now)
         self.assertEqual(value, float(data[0]['value']))
 
     def test_add_availability_single(self):
@@ -299,6 +301,11 @@ class MetricsTestCase(TestMetricFunctionsBase):
         self.assertEqual(10, bp[0]['samples'])
         self.assertEqual(2, len(bp[0]['percentiles']))
 
+        now = datetime.utcfromtimestamp(t/1000)
+
+        bp = self.client.query_metric_stats(MetricType.Gauge, 'test.buckets.1', bucketDuration=timedelta(seconds=2), start=now-timedelta(seconds=10), end=now, distinct=True)
+        self.assertEqual(5, len(bp), "Single bucket is two seconds")
+
     def test_tenant_changing(self):
         self.client.create_metric_definition(MetricType.Availability, 'test.tenant.avail.1')
         # Fetch metrics and check that it did appear
@@ -337,6 +344,15 @@ class MetricsTestCase(TestMetricFunctionsBase):
         url = self.client._get_metrics_stats_url('some.key')
         self.assertEqual('some.key/stats', url)
 
+    def test_timedelta_to_duration_string(self):
+        s = timedelta_to_duration(timedelta(hours=1, minutes=3, seconds=4))
+        self.assertEqual('3784s', s)
+
+        s = timedelta_to_duration(timedelta(hours=1, seconds=4))
+        self.assertEqual('3604s', s)
+
+        s = timedelta_to_duration(timedelta(days=4))
+        self.assertEqual('345600s', s)
 
 if __name__ == '__main__':
     unittest.main()

@@ -21,6 +21,7 @@ import time
 import collections
 import base64
 import ssl
+from datetime import datetime, timedelta
 
 try:
     import simplejson as json
@@ -58,6 +59,8 @@ class HawkularMetricsClient(HawkularBaseClient):
     """
     Internal methods
     """
+    epoch = datetime.utcfromtimestamp(0)
+
     def _get_url(self, metric_type=None):
         if metric_type is None:
             metric_type = MetricType._Metrics
@@ -139,32 +142,70 @@ class HawkularMetricsClient(HawkularBaseClient):
         :param metric_type: MetricType to be matched (required)
         :param metric_id: Exact string matching metric id
         :param value: Datapoint value (depending on the MetricType)
-        :param timestamp: Timestamp of the datapoint. If left empty, uses current client time.
+        :param timestamp: Timestamp of the datapoint. If left empty, uses current client time. Can be milliseconds since epoch or datetime instance
         """
+        if type(timestamp) is datetime:
+            timestamp = datetime_to_time_millis(timestamp)
+
         item = create_metric(metric_type, metric_id, create_datapoint(value, timestamp))
         self.put(item)
 
-    def query_metric(self, metric_type, metric_id, **query_options):
+    def query_metric(self, metric_type, metric_id, start=None, end=None, **query_options):
         """
         Query for metrics datapoints from the server.
 
         :param metric_type: MetricType to be matched (required)
         :param metric_id: Exact string matching metric id
+        :param start: Milliseconds since epoch or datetime instance
+        :param end: Milliseconds since epoch or datetime instance
         :param query_options: For possible query_options, see the Hawkular-Metrics documentation.
         """
+        if start is not None:
+            if type(start) is datetime:
+                query_options['start'] = datetime_to_time_millis(start)
+            else:
+                query_options['start'] = start
+
+        if end is not None:
+            if type(end) is datetime:
+                query_options['end'] = datetime_to_time_millis(end)
+            else:
+                query_options['end'] = end
+
         return self._get(
             self._get_metrics_raw_url(
                 self._get_metrics_single_url(metric_type, metric_id)),
             **query_options)
 
-    def query_metric_stats(self, metric_type, metric_id, **query_options):
+    def query_metric_stats(self, metric_type, metric_id, start=None, end=None, bucketDuration=None, **query_options):
         """
         Query for metric aggregates from the server. This is called buckets in the Hawkular-Metrics documentation.
 
         :param metric_type: MetricType to be matched (required)
         :param metric_id: Exact string matching metric id
+        :param start: Milliseconds since epoch or datetime instance
+        :param end: Milliseconds since epoch or datetime instance
+        :param bucketDuration: The timedelta or duration of buckets. Can be a string presentation or timedelta object
         :param query_options: For possible query_options, see the Hawkular-Metrics documentation.
         """
+        if start is not None:
+            if type(start) is datetime:
+                query_options['start'] = datetime_to_time_millis(start)
+            else:
+                query_options['start'] = start
+
+        if end is not None:
+            if type(end) is datetime:
+                query_options['end'] = datetime_to_time_millis(end)
+            else:
+                query_options['end'] = end
+
+        if bucketDuration is not None:
+            if type(bucketDuration) is timedelta:
+                query_options['bucketDuration'] = timedelta_to_duration(bucketDuration)
+            else:
+                query_options['bucketDuration'] = bucketDuration
+
         return self._get(
             self._get_metrics_stats_url(
                 self._get_metrics_single_url(metric_type, metric_id)),
@@ -312,16 +353,25 @@ def time_millis():
     """
     return int(round(time.time() * 1000))
 
+def timedelta_to_duration(td):
+    return '{}s'.format(int(td.total_seconds()))
+
+def datetime_to_time_millis(dt):
+    return '{:.0f}'.format((dt - HawkularMetricsClient.epoch).total_seconds() * 1000)
+
 def create_datapoint(value, timestamp=None, **tags):
     """
     Creates a single datapoint dict with a value, timestamp and tags.
 
     :param value: Value of the datapoint. Type depends on the id's MetricType
-    :param timestamp: Optional timestamp of the datapoint. Uses client current time if not set. Millisecond accuracy
+    :param timestamp: Optional timestamp of the datapoint. Uses client current time if not set. Millisecond accuracy. Can be datetime instance also.
     :param tags: Optional datapoint tags. Not to be confused with metric definition tags
     """
     if timestamp is None:
         timestamp = time_millis()
+
+    if type(timestamp) is datetime:
+        timestamp = datetime_to_time_millis(timestamp)
 
     item = { 'timestamp': timestamp,
              'value': value }
