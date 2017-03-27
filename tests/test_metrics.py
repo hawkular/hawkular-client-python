@@ -264,9 +264,9 @@ class MetricsTestCase(TestMetricFunctionsBase):
 
     def test_query_options(self):
         # Create metric with two values
-        t = time_millis()
+        t = datetime.utcnow()
         v1 = create_datapoint(float(1.45), t)
-        v2 = create_datapoint(float(2.00), (t - 2000))
+        v2 = create_datapoint(float(2.00), (t - timedelta(seconds=2)))
 
         m = create_metric(MetricType.Gauge, 'test.query.gauge.1', [v1, v2])
         self.client.put(m)
@@ -276,7 +276,7 @@ class MetricsTestCase(TestMetricFunctionsBase):
         self.assertEqual(2, len(d))
 
         # Query for data which has start time limitation
-        d = self.client.query_metric(MetricType.Gauge, 'test.query.gauge.1', start=(t - 1000))
+        d = self.client.query_metric(MetricType.Gauge, 'test.query.gauge.1', start=(t - timedelta(seconds=1)))
         self.assertEqual(1, len(d))
 
     def test_stats_queries(self):

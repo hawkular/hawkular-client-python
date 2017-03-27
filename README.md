@@ -7,7 +7,7 @@ This repository includes the necessary Python client libraries to access Hawkula
 
 ## Introduction
 
-Python client to access Hawkular-Metrics, an abstraction to invoke REST-methods on the server endpoint using urllib2. No external dependencies, works with Python 2.7.x (tested on 2.7.5/2.7.6 and 2.7.10) and Python 3.4.x (tested with the Python 3.4.2, might work with newer versions also)
+Python client to access Hawkular-Metrics, an abstraction to invoke REST-methods on the server endpoint using urllib2. No external dependencies, works with Python 2.7.x (tested on 2.7.5/2.7.6 and 2.7.10/2.7.13) and Python 3.4.x / Python 3.5.x (tested with the Python 3.4.2 and Python 3.5.3, might work with newer versions also).
 
 ## License and copyright
 
@@ -36,7 +36,7 @@ To install, run ``python setup.py install`` if you installed from source code, o
 
 To use hawkular-client-python in your own program, after installation import from hawkular the class HawkularMetricsClient and instantiate it. After this, push dicts with keys id, timestamp and value with put or use assistant method create to send events. pydoc gives the list of allowed parameters for each function.
 
-Timestamps should be in the milliseconds after epoch and numeric values should be float. The client provides a method to request current time in milliseconds, ``time_millis()``
+The client provides a method to request current time in milliseconds, ``time_millis()`` that's accepted by the methods, but you can use ``datetime`` and ``timedelta`` to control the time also when sending requests to the Hawkular-Metrics. 
 
 See metrics_test.py for more detailed examples and [Hawkular-Metrics documentation](http://www.hawkular.org/docs/components/metrics/index.html) for more detailed explanation of available features.
 
@@ -100,8 +100,9 @@ Example pushing a multiple values:
 
 ```python
 >>> from hawkular.metrics import create_datapoint, create_metric, time_millis
->>> datapoint = create_datapoint(float(4.35), time_millis())
->>> datapoint2 = create_datapoint(float(4.42), time_millis() + 10)
+>>> t = datetime.utcnow()
+>>> datapoint = create_datapoint(float(4.35), t)
+>>> datapoint2 = create_datapoint(float(4.42), t + timedelta(seconds=10))
 >>> metric = create_metric(MetricType.Gauge, 'example.doc.1', [datapoint, datapoint2])
 >>> client.put(metric)
 ```
