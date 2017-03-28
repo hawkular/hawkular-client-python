@@ -8,7 +8,7 @@
 %endif
 
 Name:           python-%{srcname}
-Version:        0.5.2
+Version:        0.5.3
 Release:        1%{?dist}
 Summary:        Python client to communicate with Hawkular server over HTTP(S)
 
@@ -95,6 +95,9 @@ popd
 %endif # with python3
 
 %changelog
+* Tue Mar 28 2017 Michael Burman <miburman@redhat.com> - 0.5.2-1
+- Update to 0.5.3
+
 * Thu Feb 23 2017 Michael Burman <miburman@redhat.com> - 0.5.2-1
 - Update to 0.5.2
 
