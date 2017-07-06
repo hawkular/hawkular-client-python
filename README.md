@@ -38,7 +38,7 @@ To use hawkular-client-python in your own program, after installation import fro
 
 The client provides a method to request current time in milliseconds, ``time_millis()`` that's accepted by the methods, but you can use ``datetime`` and ``timedelta`` to control the time also when sending requests to the Hawkular-Metrics. 
 
-See metrics_test.py for more detailed examples and [Hawkular-Metrics documentation](http://www.hawkular.org/docs/components/metrics/index.html) for more detailed explanation of available features.
+See metrics_test.py for more detailed examples and [Hawkular-Metrics documentation](http://www.hawkular.org/hawkular-metrics/docs/user-guide/) for more detailed explanation of available features.
 
 ### General
 
