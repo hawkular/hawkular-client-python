@@ -16,6 +16,7 @@
 """
 from hawkular.client import ApiOject, HawkularBaseClient
 
+
 class Trigger(ApiOject):
     __slots__ = [
         'id', 'name', 'description', 'type', 'event_type', 'event_category',
@@ -191,6 +192,13 @@ class HawkularAlertsClient(HawkularBaseClient):
     def create_group_member(self, member):
         data = self._serialize_object(member)
         return Trigger(self._post(self._service_url(['triggers', 'groups', 'members']), data))
+
+    def put_trigger_conditions(self, trigger_id, trigger_mode, conditions):
+        data = self._serialize_object(conditions)
+        url = self._service_url(['triggers', trigger_id, 'conditions', trigger_mode])
+        response = self._put(url, data)
+        return Condition.list_to_object_list(response)
+
 
     def get_trigger_conditions(self, trigger_id):
         """
