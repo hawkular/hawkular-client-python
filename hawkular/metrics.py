@@ -28,7 +28,7 @@ try:
 except ImportError:
     import json
 
-from hawkular.client import ApiOject, HawkularBaseClient, HawkularMetricsError
+from hawkular.client import ApiObject, HawkularBaseClient, HawkularMetricsError
 from hawkular.client import HawkularMetricsConnectionError, HawkularMetricsStatusError
 
 class MetricType:
@@ -91,17 +91,17 @@ class HawkularMetricsClient(HawkularBaseClient):
     @staticmethod
     def _transform_tags(**tags):
         return ','.join("%s:%s" % (key,val) for (key,val) in tags.items())
-        
+
     def _isfloat(value):
         try:
             float(value)
             return True
         except ValueError:
             return False
-        
+
     """
     External methods
-    """    
+    """
 
     def tenant(self, tenant_id):
         self.tenant_id = tenant_id
@@ -109,7 +109,7 @@ class HawkularMetricsClient(HawkularBaseClient):
     """
     Instance methods
     """
-    
+
     def put(self, data):
         """
         Send multiple different metric_ids to the server in a single batch. Metrics can be a mixture
@@ -219,7 +219,7 @@ class HawkularMetricsClient(HawkularBaseClient):
         :param metric_id: Exact string matching metric id
         """
         return self._get(self._get_metrics_single_url(metric_type, metric_id))
-    
+
     def query_metric_definitions(self, metric_type=None, id_filter=None, **tags):
         """
         Query available metric definitions.
@@ -280,7 +280,7 @@ class HawkularMetricsClient(HawkularBaseClient):
             raise e
 
         return True
-        
+
     def query_metric_tags(self, metric_type, metric_id):
         """
         Returns a list of tags in the metric definition.
@@ -303,7 +303,7 @@ class HawkularMetricsClient(HawkularBaseClient):
 
     def delete_metric_tags(self, metric_type, metric_id, **deleted_tags):
         """
-        Delete one or more tags from the metric definition. 
+        Delete one or more tags from the metric definition.
 
         :param metric_type: MetricType to be matched (required)
         :param metric_id: Exact string matching metric id
@@ -312,12 +312,12 @@ class HawkularMetricsClient(HawkularBaseClient):
         tags = self._transform_tags(**deleted_tags)
         tags_url = self._get_metrics_tags_url(self._get_metrics_single_url(metric_type, metric_id)) + '/{0}'.format(tags)
 
-        self._delete(tags_url)    
-        
+        self._delete(tags_url)
+
     """
     Tenant related queries
     """
-    
+
     def query_tenants(self):
         """
         Query available tenants and their information.
@@ -330,7 +330,7 @@ class HawkularMetricsClient(HawkularBaseClient):
         version of Hawkular-Metrics has fixed implementation.
 
         :param retentions: A set of retention settings, see Hawkular-Metrics documentation for more info
-        """        
+        """
         item = { 'id': tenant_id }
         if retentions is not None:
             item['retentions'] = retentions
@@ -391,7 +391,7 @@ def create_metric(metric_type, metric_id, data):
     """
     if not isinstance(data, list):
         data = [data]
-    
+
     return { 'type': metric_type,'id': metric_id, 'data': data }
 
 def create_percentiles_filter(*percentiles):
@@ -399,7 +399,7 @@ def create_percentiles_filter(*percentiles):
     Create percentiles filter from a list of float64 percentile values
     """
     return ','.join("%s" % p for p in percentiles)
-        
+
 def create_tags_filter(**tags):
     """
     Transform a set of parameters to a tag query language filter

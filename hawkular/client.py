@@ -40,7 +40,7 @@ except ImportError:
 
 class ApiJsonEncoder(json.JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, ApiOject):
+        if isinstance(obj, ApiObject):
             return obj.to_json_object()
         else:
             return json.JSONEncoder.default(self, obj)
@@ -71,12 +71,12 @@ class HawkularHTTPErrorProcessor(HTTPErrorProcessor):
     https_response = http_response
 
 
-class ApiOject:
+class ApiObject:
 
     defaults = dict()
 
     def __init__(self, dictionary=dict()):
-        udict = ApiOject.transform_dict_to_underscore(dictionary)
+        udict = ApiObject.transform_dict_to_underscore(dictionary)
         for k in self.__slots__:
             setattr(self, k, udict.get(k,self.defaults.get(k)))
 
@@ -85,7 +85,7 @@ class ApiOject:
         for attribute in self.__slots__:
             if hasattr(self,attribute):
                 dictionary[attribute] = getattr(self,attribute)
-        return ApiOject.transform_dict_to_camelcase(dictionary)
+        return ApiObject.transform_dict_to_camelcase(dictionary)
 
     @staticmethod
     def _to_camelcase(word):
@@ -100,13 +100,13 @@ class ApiOject:
     def transform_dict_to_camelcase(dictionary):
         if dictionary is None:
             return dict()
-        return dict((ApiOject._to_camelcase(k), v) for k, v in dictionary.items() if v is not None)
+        return dict((ApiObject._to_camelcase(k), v) for k, v in dictionary.items() if v is not None)
 
     @staticmethod
     def transform_dict_to_underscore(dictionary):
         if dictionary is None:
             return dict()
-        return dict((ApiOject._to_underscore(k), v) for k, v in dictionary.items() if v is not None)
+        return dict((ApiObject._to_underscore(k), v) for k, v in dictionary.items() if v is not None)
 
     @classmethod
     def list_to_object_list(cls, o):

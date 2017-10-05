@@ -14,9 +14,9 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 """
-from hawkular.client import ApiOject, HawkularBaseClient
+from hawkular.client import ApiObject, HawkularBaseClient
 
-class Trigger(ApiOject):
+class Trigger(ApiObject):
     __slots__ = [
         'id', 'name', 'description', 'type', 'event_type', 'event_category',
         'event_text', 'event_category', 'event_text', 'severity', 'context',
@@ -25,8 +25,7 @@ class Trigger(ApiOject):
         'enabled', 'firing_match', 'source'
     ]
 
-
-class Condition(ApiOject):
+class Condition(ApiObject):
     __slots__ = [
         'trigger_id', 'trigger_mode', 'type', 'condition_set_size',
         'condition_set_index', 'condition_id', 'context', 'data_id',
@@ -36,14 +35,13 @@ class Condition(ApiOject):
     ]
 
 
-class Dampening(ApiOject):
+class Dampening(ApiObject):
     __slots__ = [
         'trigger_id', 'trigger_mode', 'type', 'eval_true_setting',
         'eval_total_setting', 'eval_time_setting', 'dampening_id'
     ]
 
-
-class FullTrigger(ApiOject):
+class FullTrigger(ApiObject):
     defaults = {
         'conditions': [],
         'dampenings': []
@@ -59,20 +57,20 @@ class FullTrigger(ApiOject):
         self.conditions = Condition.list_to_object_list(udict.get('conditions'))
 
 
-class GroupMemberInfo(ApiOject):
+class GroupMemberInfo(ApiObject):
     __slots__ = [
         'group_id', 'member_id', 'member_name', 'member_description', 'member_context',
         'member_tags', 'data_id_map'
     ]
 
 
-class GroupConditionsInfo(ApiOject):
+class GroupConditionsInfo(ApiObject):
     __slots__ = [
         'conditions', 'data_id_member_map'
     ]
 
     def __init__(self, dictionary=dict()):
-        ApiOject.__init__(self, dictionary)
+        ApiObject.__init__(self, dictionary)
         udict = self.transform_dict_to_underscore(dictionary)
         self.conditions = Condition.list_to_object_list(udict.get('conditions'))
 
@@ -191,6 +189,12 @@ class HawkularAlertsClient(HawkularBaseClient):
     def create_group_member(self, member):
         data = self._serialize_object(member)
         return Trigger(self._post(self._service_url(['triggers', 'groups', 'members']), data))
+
+    def put_trigger_conditions(self, trigger_id, trigger_mode, conditions):
+        data = self._serialize_object(conditions)
+        url = self._service_url(['triggers', trigger_id, 'conditions', trigger_mode])
+        response = self._put(url, data)
+        return Condition.list_to_object_list(response)
 
     def get_trigger_conditions(self, trigger_id):
         """
