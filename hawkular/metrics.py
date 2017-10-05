@@ -28,8 +28,8 @@ try:
 except ImportError:
     import json
 
-from hawkular.client import ApiObject, HawkularBaseClient, HawkularMetricsError
-from hawkular.client import HawkularMetricsConnectionError, HawkularMetricsStatusError
+from hawkular.client import ApiObject, HawkularBaseClient, HawkularError
+from hawkular.client import HawkularConnectionError, HawkularStatusError
 
 class MetricType:
     Gauge = 'gauges'
@@ -125,7 +125,7 @@ class HawkularMetricsClient(HawkularBaseClient):
         for d in data:
             metric_type = d.pop('type', None)
             if metric_type is None:
-                raise HawkularMetricsError('Undefined MetricType')
+                raise HawkularError('Undefined MetricType')
             r[metric_type].append(d)
 
         # This isn't transactional, but .. ouh well. One can always repost everything.
@@ -274,7 +274,7 @@ class HawkularMetricsClient(HawkularBaseClient):
         json_data = json.dumps(item, indent=2)
         try:
             self._post(self._get_url(metric_type), json_data)
-        except HawkularMetricsError as e:
+        except HawkularError as e:
             if e.code == 409:
                 return False
             raise e

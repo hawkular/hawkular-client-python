@@ -1,5 +1,5 @@
 """
-   Copyright 2015-2016 Red Hat, Inc. and/or its affiliates
+   Copyright 2015-2017 Red Hat, Inc. and/or its affiliates
    and other contributors.
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,10 +17,7 @@
 from __future__ import unicode_literals
 
 import codecs
-import time
-import collections
 import base64
-import ssl
 
 try:
     import simplejson as json
@@ -46,15 +43,15 @@ class ApiJsonEncoder(json.JSONEncoder):
             return json.JSONEncoder.default(self, obj)
 
 
-class HawkularMetricsError(HTTPError):
+class HawkularError(HTTPError):
     pass
 
 
-class HawkularMetricsConnectionError(URLError):
+class HawkularConnectionError(URLError):
     pass
 
 
-class HawkularMetricsStatusError(ValueError):
+class HawkularStatusError(ValueError):
     pass
 
 
@@ -71,7 +68,9 @@ class HawkularHTTPErrorProcessor(HTTPErrorProcessor):
     https_response = http_response
 
 
-class ApiObject:
+class ApiObject(object):
+
+    __slots__ = []
 
     defaults = dict()
 
@@ -114,21 +113,7 @@ class ApiObject:
             return [cls(ob) for ob in o]
         return []
 
-
-class HawkularHTTPErrorProcessor(HTTPErrorProcessor):
-    """
-    Hawkular-Metrics uses http codes 201, 204
-    """
-
-    def http_response(self, request, response):
-        if response.code in [200, 201, 204]:
-            return response
-        return HTTPErrorProcessor.http_response(self, request, response)
-
-    https_response = http_response
-
-
-class HawkularBaseClient:
+class HawkularBaseClient(object):
     """
     Creates new client for Hawkular-Metrics. As tenant_id, give intended tenant_id, even if it's not
     created yet. To change the instance's tenant_id, use tenant(tenant_id) method
@@ -284,7 +269,7 @@ class HawkularBaseClient:
     def _handle_error(self, e):
         if isinstance(e, HTTPError):
             # Cast to HawkularMetricsError
-            ee = HawkularMetricsError(e.url, e.code, e.msg, e.hdrs, e.fp)
+            ee = HawkularError(e.url, e.code, e.msg, e.hdrs, e.fp)
             err_json = e.read()
 
             try:
@@ -297,17 +282,17 @@ class HawkularBaseClient:
 
         elif isinstance(e, URLError):
             # Cast to HawkularMetricsConnectionError
-            ee = HawkularMetricsConnectionError(e)
+            ee = HawkularConnectionError(e)
             ee.msg = "Error, could not send event(s) to the Hawkular Metrics: " + str(e.reason)
             raise ee
         elif isinstance(e, KeyError):
             # Cast to HawkularMetricsStatusError
-            ee = HawkularMetricsStatusError(e)
+            ee = HawkularStatusError(e)
             ee.msg = "Error, unable to get implementation version for metrics: " + str(e.reason)
             raise ee
         elif isinstance(e, ValueError):
             # Cast to HawkularMetricsStatusError
-            ee = HawkularMetricsStatusError(e)
+            ee = HawkularStatusError(e)
             ee.msg = "Error, unable to determine implementation version for metrics: " + str(e.reason)
             raise ee
         else:
