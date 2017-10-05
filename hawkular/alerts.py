@@ -126,10 +126,9 @@ class Severity:
 
 
 class HawkularAlertsClient(HawkularBaseClient):
-    def list_triggers(self, ids=[], tags=[]):
-        ids = ','.join(ids)
+    def list_triggers(self, tags=[]):
         tags = ','.join(tags)
-        url = self._service_url('triggers', {'tags': tags, 'ids': ids})
+        url = self._service_url('triggers', {'tags': tags})
         triggers_dict = self._get(url)
         return Trigger.list_to_object_list(triggers_dict)
 
