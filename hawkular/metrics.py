@@ -16,11 +16,8 @@
 """
 from __future__ import unicode_literals
 
-import codecs
 import time
 import collections
-import base64
-import ssl
 from datetime import datetime, timedelta
 
 try:
@@ -28,8 +25,7 @@ try:
 except ImportError:
     import json
 
-from hawkular.client import ApiObject, HawkularBaseClient, HawkularError
-from hawkular.client import HawkularConnectionError, HawkularStatusError
+from hawkular.client import HawkularBaseClient, HawkularError
 
 class MetricType:
     Gauge = 'gauges'

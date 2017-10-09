@@ -14,14 +14,11 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 """
-from hawkular.metrics import HawkularMetricsClient, MetricType, Availability
-from hawkular.alerts import HawkularAlertsClient, Trigger, FullTrigger, Condition, Dampening, FullTrigger, GroupMemberInfo
-from hawkular.alerts import GroupConditionsInfo, TriggerType, TriggerMode, DampeningType, ConditionType, Operator, Severity, Status
+from hawkular.client import ApiObject, HawkularBaseClient
+from hawkular.alerts.common import *
+from hawkular.alerts.triggers import *
 
-__all__ = ['HawkularMetricsClient',
-           'MetricType',
-           'Availability',
-           'HawkularAlertsClient',
+__all__ = ['HawkularAlertsClient',
            'Trigger',
            'Condition',
            'Dampening',
@@ -34,4 +31,6 @@ __all__ = ['HawkularMetricsClient',
            'ConditionType',
            'Operator',
            'Severity',
-           'Status']
+           'Status',
+]
+#           'AlertsTriggerClient']

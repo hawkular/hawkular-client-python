@@ -1,5 +1,5 @@
 """
-   Copyright 2015-2016 Red Hat, Inc. and/or its affiliates
+   Copyright 2015-2017 Red Hat, Inc. and/or its affiliates
    and other contributors.
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +19,6 @@ from __future__ import unicode_literals
 import unittest
 import uuid
 from hawkular.alerts import *
-import os
 from tests import base
 
 try:
@@ -37,7 +36,6 @@ class TestAlertsFunctionsBase(unittest.TestCase):
         self.client = HawkularAlertsClient(tenant_id=self.test_tenant,
                                            port=8080)
 
-
 @unittest.skipIf(base.version != 'latest' and base.major_version == 0 and base.minor_version <= 15,
                  'Not supported in ' + base.version + ' version')
 class AlertsTestCase(TestAlertsFunctionsBase):
@@ -45,11 +43,11 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         trigger = Trigger()
         trigger.id = 'id_1'
         trigger.name = 'test_trigger'
-        created_trigger = self.client.create_trigger(trigger)
+        created_trigger = self.client.triggers.create_trigger(trigger)
         self.assertEqual(trigger.id, created_trigger.id)
-        triggers = self.client.list_triggers()
-        self.assertEqual(1, len(triggers))
-        self.assertEqual(triggers[0].id, trigger.id)
+        triggers_list = self.client.triggers.list_triggers()
+        self.assertEqual(1, len(triggers_list))
+        self.assertEqual(triggers_list[0].id, trigger.id)
 
     def test_full_trigger_creation(self):
         trigger = Trigger()
@@ -98,18 +96,18 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         full_trigger.dampenings.append(dampening2)
         full_trigger.conditions = [condition1, condition2, condition3]
 
-        created_trigger = self.client.create_trigger(full_trigger)
+        created_trigger = self.client.triggers.create_trigger(full_trigger)
         self.assertEqual(trigger.id, created_trigger.trigger.id)
 
         # Check if the trigger appears on the list.
 
-        triggers = self.client.list_triggers()
+        triggers = self.client.triggers.list_triggers()
         self.assertEqual(1, len(triggers))
         self.assertEqual(triggers[0].id, trigger.id)
 
         # Check if it is possible to get the full trigger.
 
-        created_full_trigger = self.client.get_trigger('id_1', True)
+        created_full_trigger = self.client.triggers.get_trigger('id_1', True)
 
         self.assertTrue(isinstance(created_full_trigger, FullTrigger))
         self.assertEqual(created_full_trigger.trigger.id, trigger.id)
@@ -118,7 +116,7 @@ class AlertsTestCase(TestAlertsFunctionsBase):
 
         # Check for dampenings.
 
-        dampenings = self.client.list_dampenings('id_1')
+        dampenings = self.client.triggers.list_dampenings('id_1')
         self.assertEqual(2, len(dampenings))
         self.assertEqual(dampenings[0].trigger_id, trigger.id)
         self.assertEqual(dampenings[1].trigger_id, trigger.id)
@@ -127,8 +125,8 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         trigger = Trigger()
         trigger.id = 'group_trigger_1'
         trigger.name = 'group_trigger_test'
-        self.client.create_group_trigger(trigger)
-        created_group_trigger = created_full_trigger = self.client.get_trigger('group_trigger_1')
+        self.client.triggers.create_group_trigger(trigger)
+        created_group_trigger = created_full_trigger = self.client.triggers.get_trigger('group_trigger_1')
         self.assertEqual(created_group_trigger.id, trigger.id)
         self.assertEqual(created_group_trigger.name, trigger.name)
 
@@ -137,7 +135,7 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         trigger = Trigger()
         trigger.id = 'group_trigger_01'
         trigger.name = 'group_trigger'
-        self.client.create_group_trigger(trigger)
+        self.client.triggers.create_group_trigger(trigger)
 
         # Create condition objects
         condition1 = Condition()
@@ -165,28 +163,29 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         gc.addCondition(condition1)
         gc.addCondition(condition2)
         gc.addCondition(condition3)
-        self.client.create_group_conditions(trigger.id, TriggerMode.AUTORESOLVE, gc)
+        self.client.triggers.create_group_conditions(trigger.id, TriggerMode.AUTORESOLVE, gc)
 
-        gc = self.client.get_trigger_conditions(trigger.id)
+        gc = self.client.triggers.get_trigger_conditions(trigger.id)
         self.assertEqual(len(gc), 3)
         gc_dids = [c.data_id for c in gc]
-        self.assertEqual(gc_dids, ['did1', 'did2', 'did3'])
+        for g in gc_dids:
+            self.assertIn(g, ['did1', 'did2', 'did3'])
 
     def test_delete_group_trigger(self):
         # Create a group trigger
         gt = Trigger()
         gt.id = 'delete_group_trigger'
         gt.name = 'group_trigger_to_delete'
-        self.client.create_group_trigger(gt)
+        self.client.triggers.create_group_trigger(gt)
 
-        group_count = len(self.client.list_triggers())
+        group_count = len(self.client.triggers.list_triggers())
         # Delete the created group trigger
-        self.client.delete_group_trigger('delete_group_trigger')
+        self.client.triggers.delete_group_trigger('delete_group_trigger')
 
         # Compare number of remaining triggers and query the deleted trigger id
-        self.assertEqual(len(self.client.list_triggers()), group_count-1)
+        self.assertEqual(len(self.client.triggers.list_triggers()), group_count-1)
         with self.assertRaises(HTTPError) as e:
-            self.client.get_trigger('delete_group_trigger')
+            self.client.triggers.get_trigger('delete_group_trigger')
             self.assertEqual(e.getcode(), 404)
 
     def test_create_groups(self):
@@ -221,24 +220,24 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         dampening.type = DampeningType.STRICT
         dampening.trigger_id = 'a-group-trigger'
 
-        tc = self.client.create_group_trigger(t)
+        tc = self.client.triggers.create_group_trigger(t)
         self.assertEqual(tc.type, TriggerType.GROUP)
-        gcc = self.client.create_group_conditions(t.id, TriggerMode.FIRING, gc)
+        gcc = self.client.triggers.create_group_conditions(t.id, TriggerMode.FIRING, gc)
         self.assertEqual(len(gcc), 1)
-        t_m1c = self.client.create_group_member(m1)
+        t_m1c = self.client.triggers.create_group_member(m1)
         self.assertEqual(t_m1c.type, TriggerType.MEMBER)
-        gm = self.client.get_group_members('a-group-trigger')
+        gm = self.client.triggers.get_group_members('a-group-trigger')
         self.assertEqual(len(gm), 1)
         self.assertEqual(gm[0].id, 'member1')
 
         # Delete group member trigger
-        self.client.delete_trigger('member1')
-        gm = self.client.get_group_members('a-group-trigger')
+        self.client.triggers.delete_trigger('member1')
+        gm = self.client.triggers.get_group_members('a-group-trigger')
         self.assertFalse(gm)
 
         # Create group trigger dampening
-        self.client.create_group_dampening('a-group-trigger', dampening)
-        gt = self.client.get_trigger('a-group-trigger', full=True)
+        self.client.triggers.create_group_dampening('a-group-trigger', dampening)
+        gt = self.client.triggers.get_trigger('a-group-trigger', full=True)
         gds = gt.dampenings
         self.assertEqual(len(gds), 1)
         self.assertEqual(gds[0].trigger_mode, 'FIRING')
@@ -248,19 +247,19 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         dampening.type = DampeningType.STRICT_TIME
         dampening.eval_time_setting = 5
         dampening.dampening_id = gds[0].dampening_id
-        gd = self.client.update_group_dampening('a-group-trigger', dampening.dampening_id, dampening)
+        gd = self.client.triggers.update_group_dampening('a-group-trigger', dampening.dampening_id, dampening)
         self.assertEqual(gd.type, 'STRICT_TIME')
 
         # Delete group trigger dampening
-        self.client.delete_group_dampening('a-group-trigger', dampening.dampening_id)
-        gt = self.client.get_trigger('a-group-trigger', full=True)
+        self.client.triggers.delete_group_dampening('a-group-trigger', dampening.dampening_id)
+        gt = self.client.triggers.get_trigger('a-group-trigger', full=True)
         self.assertFalse(gt.dampenings)
 
         # Update group trigger
         t.enabled = True
         t.severity = Severity.MEDIUM
 
-        self.client.update_group_trigger(t.id, t)
-        gt = self.client.get_trigger(t.id)
+        self.client.triggers.update_group_trigger(t.id, t)
+        gt = self.client.triggers.get_trigger(t.id)
         self.assertEqual(gt.enabled, True)
         self.assertEqual(gt.severity, Severity.MEDIUM)

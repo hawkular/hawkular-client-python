@@ -132,7 +132,7 @@ class HawkularBaseClient(object):
                  auto_set_legacy_api=True,
                  authtoken=None):
         """
-        A new instance of HawkularMetricsClient is created with the following defaults:
+        A new instance of HawkularClient is created with the following defaults:
 
         host = localhost
         port = 8080
@@ -157,23 +157,24 @@ class HawkularBaseClient(object):
         self.legacy_api = False
         self.authtoken = authtoken
 
-        opener = build_opener(HawkularHTTPErrorProcessor())
-        install_opener(opener)
-
-        if path is None:
-            class_name = self.__class__.__name__
-            path_components = ''.join(["_" + c.lower() if c.isupper() else c for c in class_name]).split('_')
-            path_components.pop()
-            self.path = '/'.join(path_components);
-        else:
-            self.path = path
-        self.path = self.path.strip('/')
+        self._setup_path()
 
         # Call the server status endpoint to get the version number,
         # Use the return sematic version to set the value of legacy_api
         if auto_set_legacy_api:
             major, minor = self.query_semantic_version()
             self.legacy_api = (major == 0 and minor < 16)
+
+    def _setup_path(self):
+        opener = build_opener(HawkularHTTPErrorProcessor())
+        install_opener(opener)
+
+        if self.path is None:
+            class_name = self.__class__.__name__
+            path_components = ''.join(["_" + c.lower() if c.isupper() else c for c in class_name]).split('_')
+            path_components.pop()
+            self.path = '/'.join(path_components)
+        self.path = self.path.strip('/')
 
     def _get_base_url(self):
         return "{0}://{1}:{2}/{3}/".format(self.scheme, self.host, str(self.port), self.path)

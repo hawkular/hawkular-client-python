@@ -14,7 +14,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 """
-from hawkular.client import ApiObject, HawkularBaseClient
+from hawkular.client import ApiObject
 
 class Trigger(ApiObject):
     __slots__ = [
@@ -33,7 +33,6 @@ class Condition(ApiObject):
         'threshold', 'operator_low', 'operator_high', 'threshold_low', 'threshold_high',
         'in_range', 'alerter_id', 'expression', 'direction', 'period', 'interval'
     ]
-
 
 class Dampening(ApiObject):
     __slots__ = [
@@ -56,13 +55,11 @@ class FullTrigger(ApiObject):
         self.dampenings = Dampening.list_to_object_list(udict.get('dampenings'))
         self.conditions = Condition.list_to_object_list(udict.get('conditions'))
 
-
 class GroupMemberInfo(ApiObject):
     __slots__ = [
         'group_id', 'member_id', 'member_name', 'member_description', 'member_context',
         'member_tags', 'data_id_map'
     ]
-
 
 class GroupConditionsInfo(ApiObject):
     __slots__ = [
@@ -77,7 +74,6 @@ class GroupConditionsInfo(ApiObject):
     def addCondition(self, c):
         self.conditions.append(c)
 
-
 class TriggerType:
     STANDARD = 'STANDARD'
     GROUP = 'GROUP'
@@ -85,11 +81,9 @@ class TriggerType:
     MEMBER = 'MEMBER'
     ORPHAN = 'ORPHAN'
 
-
 class TriggerMode:
     FIRING = 'FIRING'
     AUTORESOLVE = 'AUTORESOLVE'
-
 
 class DampeningType:
     STRICT = 'STRICT'
@@ -97,7 +91,6 @@ class DampeningType:
     RELAXED_TIME = 'RELAXED_TIME'
     STRICT_TIME = 'STRICT_TIME'
     STRICT_TIMEOUT = 'STRICT_TIMEOUT'
-
 
 class ConditionType:
     AVAILABILITY = 'AVAILABILITY'
@@ -110,13 +103,11 @@ class ConditionType:
     RATE = 'RATE'
     MISSING = 'MISSING'
 
-
 class Operator:
     LT = 'LT'
     GT = 'GT'
     LTE = 'LTE'
     GTE = 'GTE'
-
 
 class Severity:
     LOW = 'LOW'
@@ -124,8 +115,15 @@ class Severity:
     HIGH = 'HIGH'
     CRITICAL = 'CRITICAL'
 
+class AlertsTriggerClient(object):
 
-class HawkularAlertsClient(HawkularBaseClient):
+    def __init__(self, alerts_client):
+        self.__client = alerts_client
+        pass
+
+    def __getattr__(self, name):
+        return getattr(self.__client, name)
+
     def list_triggers(self, tags=[]):
         tags = ','.join(tags)
         url = self._service_url('triggers', {'tags': tags})
@@ -189,6 +187,7 @@ class HawkularAlertsClient(HawkularBaseClient):
         data = self._serialize_object(member)
         return Trigger(self._post(self._service_url(['triggers', 'groups', 'members']), data))
 
+    # TODO The API defines two, PUT which updates conditions and PUT which updates trigger mode also 
     def put_trigger_conditions(self, trigger_id, trigger_mode, conditions):
         data = self._serialize_object(conditions)
         url = self._service_url(['triggers', trigger_id, 'conditions', trigger_mode])
@@ -243,3 +242,7 @@ class HawkularAlertsClient(HawkularBaseClient):
         :param dampening_id: id of the Dampening to be deleted
         """
         self._delete(self._service_url(['triggers', 'groups', group_id, 'dampenings', dampening_id]))
+
+# def enable/disable_trigger (or should it be in the update?)
+# def orphan / deorphan trigger
+# 
