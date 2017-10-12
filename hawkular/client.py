@@ -289,12 +289,12 @@ class HawkularBaseClient(object):
         elif isinstance(e, KeyError):
             # Cast to HawkularMetricsStatusError
             ee = HawkularStatusError(e)
-            ee.msg = "Error, unable to get implementation version for metrics: " + str(e.reason)
+            ee.msg = "Error, unable to get implementation version for metrics: "
             raise ee
         elif isinstance(e, ValueError):
             # Cast to HawkularMetricsStatusError
             ee = HawkularStatusError(e)
-            ee.msg = "Error, unable to determine implementation version for metrics: " + str(e.reason)
+            ee.msg = "Error, unable to determine implementation version for metrics: "
             raise ee
         else:
             raise e
