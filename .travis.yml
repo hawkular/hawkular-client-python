@@ -16,6 +16,6 @@ env:
     - PYTHONPATH=.
   matrix:
     - HAWKULAR_VERSION=latest
-    - HAWKULAR_VERSION=0.15
+    - HAWKULAR_IMAGE=hawkular/hawkular-alerts
 
 script: pytest

@@ -22,6 +22,7 @@ from  hawkular.metrics import *
 import os
 import base64
 from datetime import datetime, timedelta
+from tests import base
 
 try:
     import mock
@@ -39,7 +40,7 @@ class TestMetricFunctionsBase(unittest.TestCase):
         self.test_tenant = str(uuid.uuid4())
         self.client = HawkularMetricsClient(tenant_id=self.test_tenant, port=8080, authtoken='secret')
 
-
+@unittest.skipIf(base.is_alerts_image, "Metrics unavailable for this docker image")
 class TenantTestCase(TestMetricFunctionsBase):
     """
     Test creating and fetching tenants. Each creation test should also
@@ -84,6 +85,8 @@ class MetricsMockUpCase(unittest.TestCase):
         # Incorrect capitalization due to urllib2
         self.assertEqual('EEFFGGHH', req.get_header('Hawkular-admin-token'))
 
+
+@unittest.skipIf(base.is_alerts_image, "Metrics unavailable for this docker image")
 class MetricsTestCase(TestMetricFunctionsBase):
     """
     Test metric functionality, both adding definition and querying for definition, 
