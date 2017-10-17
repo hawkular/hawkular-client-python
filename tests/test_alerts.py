@@ -43,9 +43,9 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         trigger = Trigger()
         trigger.id = 'id_1'
         trigger.name = 'test_trigger'
-        created_trigger = self.client.triggers.create_trigger(trigger)
+        created_trigger = self.client.triggers.create(trigger)
         self.assertEqual(trigger.id, created_trigger.id)
-        triggers_list = self.client.triggers.list_triggers()
+        triggers_list = self.client.triggers.get()
         self.assertEqual(1, len(triggers_list))
         self.assertEqual(triggers_list[0].id, trigger.id)
 
@@ -96,18 +96,18 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         full_trigger.dampenings.append(dampening2)
         full_trigger.conditions = [condition1, condition2, condition3]
 
-        created_trigger = self.client.triggers.create_trigger(full_trigger)
+        created_trigger = self.client.triggers.create(full_trigger)
         self.assertEqual(trigger.id, created_trigger.trigger.id)
 
         # Check if the trigger appears on the list.
 
-        triggers = self.client.triggers.list_triggers()
+        triggers = self.client.triggers.get()
         self.assertEqual(1, len(triggers))
         self.assertEqual(triggers[0].id, trigger.id)
 
         # Check if it is possible to get the full trigger.
 
-        created_full_trigger = self.client.triggers.get_trigger('id_1', True)
+        created_full_trigger = self.client.triggers.single('id_1', True)
 
         self.assertTrue(isinstance(created_full_trigger, FullTrigger))
         self.assertEqual(created_full_trigger.trigger.id, trigger.id)
@@ -116,17 +116,17 @@ class AlertsTestCase(TestAlertsFunctionsBase):
 
         # Check for dampenings.
 
-        dampenings = self.client.triggers.list_dampenings('id_1')
+        dampenings = self.client.triggers.dampenings('id_1')
         self.assertEqual(2, len(dampenings))
         self.assertEqual(dampenings[0].trigger_id, trigger.id)
         self.assertEqual(dampenings[1].trigger_id, trigger.id)
 
-    def test_create_group_trigger(self):
+    def test_create_group_triger(self):
         trigger = Trigger()
         trigger.id = 'group_trigger_1'
         trigger.name = 'group_trigger_test'
-        self.client.triggers.create_group_trigger(trigger)
-        created_group_trigger = created_full_trigger = self.client.triggers.get_trigger('group_trigger_1')
+        self.client.triggers.create_group(trigger)
+        created_group_trigger = created_full_trigger = self.client.triggers.single('group_trigger_1')
         self.assertEqual(created_group_trigger.id, trigger.id)
         self.assertEqual(created_group_trigger.name, trigger.name)
 
@@ -135,7 +135,7 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         trigger = Trigger()
         trigger.id = 'group_trigger_01'
         trigger.name = 'group_trigger'
-        self.client.triggers.create_group_trigger(trigger)
+        self.client.triggers.create_group(trigger)
 
         # Create condition objects
         condition1 = Condition()
@@ -163,9 +163,9 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         gc.addCondition(condition1)
         gc.addCondition(condition2)
         gc.addCondition(condition3)
-        self.client.triggers.create_group_conditions(trigger.id, TriggerMode.AUTORESOLVE, gc)
+        self.client.triggers.set_group_conditions(trigger.id, gc, TriggerMode.AUTORESOLVE)
 
-        gc = self.client.triggers.get_trigger_conditions(trigger.id)
+        gc = self.client.triggers.conditions(trigger.id)
         self.assertEqual(len(gc), 3)
         gc_dids = [c.data_id for c in gc]
         for g in gc_dids:
@@ -176,16 +176,16 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         gt = Trigger()
         gt.id = 'delete_group_trigger'
         gt.name = 'group_trigger_to_delete'
-        self.client.triggers.create_group_trigger(gt)
+        self.client.triggers.create_group(gt)
 
-        group_count = len(self.client.triggers.list_triggers())
+        group_count = len(self.client.triggers.get())
         # Delete the created group trigger
-        self.client.triggers.delete_group_trigger('delete_group_trigger')
+        self.client.triggers.delete_group('delete_group_trigger')
 
         # Compare number of remaining triggers and query the deleted trigger id
-        self.assertEqual(len(self.client.triggers.list_triggers()), group_count-1)
+        self.assertEqual(len(self.client.triggers.get()), group_count-1)
         with self.assertRaises(HTTPError) as e:
-            self.client.triggers.get_trigger('delete_group_trigger')
+            self.client.triggers.single('delete_group_trigger')
             self.assertEqual(e.getcode(), 404)
 
     def test_create_groups(self):
@@ -220,24 +220,24 @@ class AlertsTestCase(TestAlertsFunctionsBase):
         dampening.type = DampeningType.STRICT
         dampening.trigger_id = 'a-group-trigger'
 
-        tc = self.client.triggers.create_group_trigger(t)
+        tc = self.client.triggers.create_group(t)
         self.assertEqual(tc.type, TriggerType.GROUP)
-        gcc = self.client.triggers.create_group_conditions(t.id, TriggerMode.FIRING, gc)
+        gcc = self.client.triggers.set_group_conditions(t.id, gc, TriggerMode.FIRING)
         self.assertEqual(len(gcc), 1)
         t_m1c = self.client.triggers.create_group_member(m1)
         self.assertEqual(t_m1c.type, TriggerType.MEMBER)
-        gm = self.client.triggers.get_group_members('a-group-trigger')
+        gm = self.client.triggers.group_members('a-group-trigger')
         self.assertEqual(len(gm), 1)
         self.assertEqual(gm[0].id, 'member1')
 
         # Delete group member trigger
-        self.client.triggers.delete_trigger('member1')
-        gm = self.client.triggers.get_group_members('a-group-trigger')
+        self.client.triggers.delete('member1')
+        gm = self.client.triggers.group_members('a-group-trigger')
         self.assertFalse(gm)
 
         # Create group trigger dampening
         self.client.triggers.create_group_dampening('a-group-trigger', dampening)
-        gt = self.client.triggers.get_trigger('a-group-trigger', full=True)
+        gt = self.client.triggers.single('a-group-trigger', full=True)
         gds = gt.dampenings
         self.assertEqual(len(gds), 1)
         self.assertEqual(gds[0].trigger_mode, 'FIRING')
@@ -252,14 +252,14 @@ class AlertsTestCase(TestAlertsFunctionsBase):
 
         # Delete group trigger dampening
         self.client.triggers.delete_group_dampening('a-group-trigger', dampening.dampening_id)
-        gt = self.client.triggers.get_trigger('a-group-trigger', full=True)
+        gt = self.client.triggers.single('a-group-trigger', full=True)
         self.assertFalse(gt.dampenings)
 
         # Update group trigger
         t.enabled = True
         t.severity = Severity.MEDIUM
 
-        self.client.triggers.update_group_trigger(t.id, t)
-        gt = self.client.triggers.get_trigger(t.id)
+        self.client.triggers.update_group(t.id, t)
+        gt = self.client.triggers.single(t.id)
         self.assertEqual(gt.enabled, True)
         self.assertEqual(gt.severity, Severity.MEDIUM)

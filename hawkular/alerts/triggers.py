@@ -74,6 +74,11 @@ class GroupConditionsInfo(ApiObject):
     def addCondition(self, c):
         self.conditions.append(c)
 
+class UnorphanMemberInfo(ApiObject):
+    __slots__ = [
+        'member_context', 'member_tags', 'data_id_map'
+    ]
+
 class TriggerType:
     STANDARD = 'STANDARD'
     GROUP = 'GROUP'
@@ -124,13 +129,31 @@ class AlertsTriggerClient(object):
     def __getattr__(self, name):
         return getattr(self.__client, name)
 
-    def list_triggers(self, tags=[]):
-        tags = ','.join(tags)
-        url = self._service_url('triggers', {'tags': tags})
+    def get(self, tags=[], trigger_ids=[]):
+        """
+        Get triggers with optional filtering. Querying without parameters returns all the trigger definitions.
+
+        :param tags: Fetch triggers with matching tags only. Use * to match all values.
+        :param trigger_ids: List of triggerIds to fetch
+        """
+        params = {}
+        if len(tags) > 0:
+            params['tags'] = ','.join(tags)
+
+        if len(trigger_ids) > 0:
+            params['triggerIds'] = ','.join(trigger_ids)
+
+        url = self._service_url('triggers', params=params)
         triggers_dict = self._get(url)
         return Trigger.list_to_object_list(triggers_dict)
 
-    def create_trigger(self, trigger):
+    def create(self, trigger):
+        """
+        Create a new trigger.
+
+        :param trigger: FullTrigger or Trigger class to be created
+        :return: The created trigger
+        """
         data = self._serialize_object(trigger)
         if isinstance(trigger, FullTrigger):
             returned_dict = self._post(self._service_url(['triggers', 'trigger']), data)
@@ -139,7 +162,36 @@ class AlertsTriggerClient(object):
             returned_dict = self._post(self._service_url('triggers'), data)
             return Trigger(returned_dict)
 
-    def get_trigger(self, trigger_id, full=False):
+    def update(self, trigger_id, full_trigger):
+        """
+        Update an existing full trigger.
+
+        :param full_trigger: FullTrigger with conditions, dampenings and triggers
+        :type full_trigger: FullTrigger
+        :return: Updated FullTrigger definition
+        """
+        data = self._serialize_object(full_trigger)
+        rdict = self._put(self._service_url(['triggers', 'trigger', trigger_id]), data)
+        return FullTrigger(rdict)
+
+    def delete(self, trigger_id):
+        """
+        Delete an existing standard or group member trigger.
+
+        This can not be used to delete a group trigger definition.
+
+        :param trigger_id: Trigger definition id to be deleted.
+        """
+        self._delete(self._service_url(['triggers', trigger_id]))
+
+    def single(self, trigger_id, full=False):
+        """
+        Get an existing (full) trigger definition.
+
+        :param trigger_id: Trigger definition id to be retrieved.
+        :param full: Fetch the full definition, default is False.
+        :return: Trigger of FullTrigger depending on the full parameter value.
+        """
         if full:
             returned_dict = self._get(self._service_url(['triggers', 'trigger', trigger_id]))
             return FullTrigger(returned_dict)
@@ -147,35 +199,42 @@ class AlertsTriggerClient(object):
             returned_dict = self._get(self._service_url(['triggers', trigger_id]))
             return Trigger(returned_dict)
 
-    def delete_trigger(self, trigger_id):
-        """ Delete an existing standard or group member trigger
+    def create_group(self, trigger):
         """
-        self._delete(self._service_url(['triggers', trigger_id]))
+        Create a new group trigger.
 
-    def create_group_trigger(self, trigger):
+        :param trigger: Group member trigger to be created
+        :return: The created group Trigger
+        """
         data = self._serialize_object(trigger)
         return Trigger(self._post(self._service_url(['triggers', 'groups']), data))
 
-    def get_group_members(self, group_id):
+    def group_members(self, group_id, include_orphans=False):
         """
         Find all group member trigger definitions
+
         :param group_id: group trigger id
+        :param include_orphans: If True, include orphan members
         :return: list of asociated group members as trigger objects
         """
-        url = self._service_url(['triggers', 'groups', group_id, 'members'])
+        params = {'includeOrphans': str(include_orphans).lower()}
+        url = self._service_url(['triggers', 'groups', group_id, 'members'], params=params)
         return Trigger.list_to_object_list(self._get(url))
 
-    def update_group_trigger(self, group_id, trigger):
+    def update_group(self, group_id, trigger):
         """
-        :param group_id: group trigger id to be updated
+        Update an existing group trigger definition and its member definitions.
+
+        :param group_id: Group trigger id to be updated
         :param trigger: Trigger object, the group trigger to be updated
         """
         data = self._serialize_object(trigger)
         self._put(self._service_url(['triggers', 'groups', group_id]), data, parse_json=False)
 
-    def delete_group_trigger(self, group_id, keep_non_orphans=False, keep_orphans=False):
+    def delete_group(self, group_id, keep_non_orphans=False, keep_orphans=False):
         """
         Delete a group trigger
+
         :param group_id: ID of the group trigger to delete
         :param keep_non_orphans: if True converts the non-orphan member triggers to standard triggers
         :param keep_orphans: if True converts the orphan member triggers to standard triggers
@@ -184,40 +243,130 @@ class AlertsTriggerClient(object):
         self._delete(self._service_url(['triggers', 'groups', group_id], params=params))
 
     def create_group_member(self, member):
+        """
+        Create a new member trigger for a parent trigger.
+
+        :param member: Group member trigger to be created
+        :type member: GroupMemberInfo
+        :return: A member Trigger object
+        """
         data = self._serialize_object(member)
         return Trigger(self._post(self._service_url(['triggers', 'groups', 'members']), data))
 
-    # TODO The API defines two, PUT which updates conditions and PUT which updates trigger mode also 
-    def put_trigger_conditions(self, trigger_id, trigger_mode, conditions):
+    def set_group_conditions(self, group_id, conditions, trigger_mode=None):
+        """
+        Set the group conditions.
+
+        This replaces any existing conditions on the group and member conditions for all trigger modes.
+
+        :param group_id: Group to be updated
+        :param conditions: New conditions to replace old ones
+        :param trigger_mode: Optional TriggerMode used
+        :type conditions: GroupConditionsInfo
+        :type trigger_mode: TriggerMode
+        :return: The new Group conditions
+        """
         data = self._serialize_object(conditions)
-        url = self._service_url(['triggers', trigger_id, 'conditions', trigger_mode])
+
+        if trigger_mode is not None:
+            url = self._service_url(['triggers', 'groups', group_id, 'conditions', trigger_mode])
+        else:
+            url = self._service_url(['triggers', 'groups', group_id, 'conditions'])
+
         response = self._put(url, data)
         return Condition.list_to_object_list(response)
 
-    def get_trigger_conditions(self, trigger_id):
+    def set_conditions(self, trigger_id, conditions, trigger_mode=None):
         """
-        Get all conditions for a specific trigger
+        Set the conditions for the trigger.
+
+        This sets the conditions for all trigger modes, replacing existing conditions for all trigger modes.
+
+        :param trigger_id: The relevant Trigger definition id
+        :param trigger_mode: Optional Trigger mode
+        :param conditions: Collection of Conditions to set.
+        :type trigger_mode: TriggerMode
+        :type conditions: List of Condition
+        :return: The new conditions.
+        """
+        data = self._serialize_object(conditions)
+        if trigger_mode is not None:
+            url = self._service_url(['triggers', trigger_id, 'conditions', trigger_mode])
+        else:
+            url = self._service_url(['triggers', trigger_id, 'conditions'])
+
+        response = self._put(url, data)
+        return Condition.list_to_object_list(response)
+
+    def conditions(self, trigger_id):
+        """
+        Get all conditions for a specific trigger.
+
         :param trigger_id: Trigger definition id to be retrieved
         :return: list of condition objects
         """
         response = self._get(self._service_url(['triggers', trigger_id, 'conditions']))
         return  Condition.list_to_object_list(response)
 
-    def create_group_conditions(self, group_id, trigger_mode, conditions):
-        data = self._serialize_object(conditions)
-        url = self._service_url(['triggers', 'groups', group_id, 'conditions', trigger_mode])
-        response = self._put(url, data)
-        return Condition.list_to_object_list(response)
+    def dampenings(self, trigger_id, trigger_mode=None):
+        """
+        Get all Dampenings for a Trigger (1 Dampening per mode).
 
-    def list_dampenings(self, trigger_id):
-        url = self._service_url(['triggers', trigger_id, 'dampenings'])
+        :param trigger_id: Trigger definition id to be retrieved.
+        :param trigger_mode: Optional TriggerMode which is only fetched
+        :type trigger_mode: TriggerMode
+        :return: List of Dampening objects
+        """
+        if trigger_mode is not None:
+            url = self._service_url(['triggers', trigger_id, 'dampenings', 'mode', trigger_mode])
+        else:
+            url = self._service_url(['triggers', trigger_id, 'dampenings'])
+
         data = self._get(url)
         return Dampening.list_to_object_list(data)
+
+    def create_dampening(self, trigger_id, dampening):
+        """
+        Create a new dampening.
+
+        :param trigger_id: TriggerId definition attached to the dampening
+        :param dampening: Dampening definition to be created.
+        :type dampening: Dampening
+        :return: Created dampening
+        """
+        data = self._serialize_object(dampening)
+        url = self._service_url(['triggers', trigger_id, 'dampenings'])
+        return Dampening(self._post(url, data))
+
+    def delete_dampening(self, trigger_id, dampening_id):
+        """
+        Delete an existing dampening definition.
+
+        :param trigger_id: Trigger definition id for deletion.
+        :param dampening_id: Dampening definition id to be deleted.
+        """
+        self._delete(self._service_url(['triggers', trigger_id, 'dampenings', dampening_id]))
+
+    def update_dampening(self, trigger_id, dampening_id):
+        """
+        Update an existing dampening definition.
+
+        Note that the trigger mode can not be changed using this method.
+        :param trigger_id: Trigger definition id targeted for update.
+        :param dampening_id: Dampening definition id to be updated.
+        :return: Updated Dampening
+        """
+        data = self._serialize_object(dampening)
+        url = self._service_url(['triggers', trigger_id, 'dampenings', dampening_id])
+        return Dampening(self._put(url, data))
 
     def create_group_dampening(self, group_id, dampening):
         """
         Create a new group dampening
+
         :param group_id: Group Trigger id attached to dampening
+        :param dampening: Dampening definition to be created.
+        :type dampening: Dampening
         :return: Group Dampening created
         """
         data = self._serialize_object(dampening)
@@ -227,6 +376,7 @@ class AlertsTriggerClient(object):
     def update_group_dampening(self, group_id, dampening_id, dampening):
         """
         Update an existing group dampening
+
         :param group_id: Group Trigger id attached to dampening
         :param dampening_id: id of the dampening to be updated
         :return: Group Dampening created
@@ -238,11 +388,69 @@ class AlertsTriggerClient(object):
     def delete_group_dampening(self, group_id, dampening_id):
         """
         Delete an existing group dampening
+
         :param group_id: Group Trigger id to be retrieved
         :param dampening_id: id of the Dampening to be deleted
         """
         self._delete(self._service_url(['triggers', 'groups', group_id, 'dampenings', dampening_id]))
 
-# def enable/disable_trigger (or should it be in the update?)
-# def orphan / deorphan trigger
-# 
+    def set_group_member_orphan(self, member_id):
+        """
+        Make a non-orphan member trigger into an orphan.
+
+        :param member_id: Member Trigger id to be made an orphan.
+        """
+        self._put(self._service_url(['triggers', 'groups', 'members', member_id, 'orphan']), data=None, parse_json=False)
+
+    def set_group_member_unorphan(self, member_id, unorphan_info):
+        """
+        Make an orphan member trigger into an group trigger.
+
+        :param member_id: Orphan Member Trigger id to be assigned into a group trigger
+        :param unorphan_info: Only context and dataIdMap are used when changing back to a non-orphan.
+        :type unorphan_info: UnorphanMemberInfo
+        :return: Trigger for the group
+        """
+        data = self._serialize_object(unorphan_info)
+        data = self._service_url(['triggers', 'groups', 'members', member_id, 'unorphan'])
+        return Trigger(self._put(url, data))
+
+    def enable(self, trigger_ids=[]):
+        """
+        Enable triggers.
+
+        :param trigger_ids: List of trigger definition ids to enable
+        """
+        trigger_ids = ','.join(trigger_ids)
+        url = self._service_url(['triggers', 'enabled'], params={'triggerIds': trigger_ids, 'enabled': 'true'})
+        self._put(url, data=None, parse_json=False)
+
+    def disable(self, trigger_ids=[]):
+        """
+        Disable triggers.
+
+        :param trigger_ids: List of trigger definition ids to disable
+        """
+        trigger_ids = ','.join(trigger_ids)
+        url = self._service_url(['triggers', 'enabled'], params={'triggerIds': trigger_ids, 'enabled': 'false'})
+        self._put(url, data=None, parse_json=False)
+
+    def enable_group(self, trigger_ids=[]):
+        """
+        Enable group triggers.
+
+        :param trigger_ids: List of group trigger definition ids to enable
+        """
+        trigger_ids = ','.join(trigger_ids)
+        url = self._service_url(['triggers', 'groups', 'enabled'], params={'triggerIds': trigger_ids, 'enabled': 'true'})
+        self._put(url, data=None, parse_json=False)
+
+    def disable_group(self, trigger_ids=[]):
+        """
+        Disable group triggers.
+
+        :param trigger_ids: List of group trigger definition ids to disable
+        """
+        trigger_ids = ','.join(trigger_ids)
+        url = self._service_url(['triggers', 'groups', 'enabled'], params={'triggerIds': trigger_ids, 'enabled': 'false'})
+        self._put(url, data=None, parse_json=False)
