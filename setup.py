@@ -18,14 +18,14 @@ with open(path.join(here, 'README.rst')) as f:
 
     
 setup(name='hawkular-client',
-      version='0.5.3',
+      version='0.5.5',
       description='Python client to communicate with Hawkular server over HTTP(S)',
       author='Michael Burman',
       author_email='miburman@redhat.com',
       license='Apache License 2.0',
       url='http://github.com/hawkular/hawkular-client-python',
       classifiers=[
-          'Development Status :: 4 - Beta',
+          'Development Status :: 5 - Production/Stable',
           'Intended Audience :: Developers',
           'Programming Language :: Python',
           'Programming Language :: Python :: 2',
