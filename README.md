@@ -7,12 +7,12 @@ This repository includes the necessary Python client libraries to access Hawkula
 
 ## Introduction
 
-Python client to access Hawkular-Metrics, an abstraction to invoke REST-methods on the server endpoint using urllib2. No external dependencies, works with Python 2.7.x (tested on 2.7.5/2.7.6 and 2.7.10/2.7.13) and Python 3.4.x / Python 3.5.x (tested with the Python 3.4.2 and Python 3.5.3, might work with newer versions also).
+Python client to access Hawkular-Metrics, an abstraction to invoke REST-methods on the server endpoint using urllib2. No external dependencies, works with Python 2.7.x (tested on 2.7.14) and Python 3.4.x / 3.5.x / 3.6.x (tested with the Python 3.4.2, Python 3.5.3 and Python 3.6.4, might work with newer versions also).
 
 ## License and copyright
 
 ```
-   Copyright 2015-2017 Red Hat, Inc. and/or its affiliates
+   Copyright 2015-2018 Red Hat, Inc. and/or its affiliates
    and other contributors.
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -38,7 +38,7 @@ To use hawkular-client-python in your own program, after installation import fro
 
 The client provides a method to request current time in milliseconds, ``time_millis()`` that's accepted by the methods, but you can use ``datetime`` and ``timedelta`` to control the time also when sending requests to the Hawkular-Metrics. 
 
-See metrics_test.py for more detailed examples and [Hawkular-Metrics documentation](http://www.hawkular.org/hawkular-metrics/docs/user-guide/) for more detailed explanation of available features.
+See ``tests/test_metrics.py`` for more detailed examples and [Hawkular-Metrics documentation](http://www.hawkular.org/hawkular-metrics/docs/user-guide/) for more detailed explanation of available features.
 
 ### General
 

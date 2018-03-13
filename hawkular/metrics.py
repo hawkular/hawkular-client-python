@@ -173,12 +173,12 @@ class HawkularMetricsClient(HawkularBaseClient):
                 self._get_metrics_single_url(metric_type, metric_id)),
             **query_options)
 
-    def query_metric_stats(self, metric_type, metric_id, start=None, end=None, bucketDuration=None, **query_options):
+    def query_metric_stats(self, metric_type, metric_id=None, start=None, end=None, bucketDuration=None, **query_options):
         """
         Query for metric aggregates from the server. This is called buckets in the Hawkular-Metrics documentation.
 
         :param metric_type: MetricType to be matched (required)
-        :param metric_id: Exact string matching metric id
+        :param metric_id: Exact string matching metric id or None for tags matching only
         :param start: Milliseconds since epoch or datetime instance
         :param end: Milliseconds since epoch or datetime instance
         :param bucketDuration: The timedelta or duration of buckets. Can be a string presentation or timedelta object
@@ -202,10 +202,14 @@ class HawkularMetricsClient(HawkularBaseClient):
             else:
                 query_options['bucketDuration'] = bucketDuration
 
-        return self._get(
-            self._get_metrics_stats_url(
-                self._get_metrics_single_url(metric_type, metric_id)),
-            **query_options)
+        if metric_id is not None:
+            url = self._get_metrics_stats_url(self._get_metrics_single_url(metric_type, metric_id))
+        else:
+            if len(query_options) < 0:
+                raise HawkularError('Tags are required when querying without metric_id')
+            url = self._get_metrics_stats_url(self._get_url(metric_type))
+
+        return self._get(url, **query_options)
 
     def query_metric_definition(self, metric_type, metric_id):
         """

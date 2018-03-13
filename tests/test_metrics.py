@@ -309,6 +309,11 @@ class MetricsTestCase(TestMetricFunctionsBase):
         bp = self.client.query_metric_stats(MetricType.Gauge, 'test.buckets.1', bucketDuration=timedelta(seconds=2), start=now-timedelta(seconds=10), end=now, distinct=True)
         self.assertEqual(5, len(bp), "Single bucket is two seconds")
 
+        # Test previous metrics in a stacked configuration
+        stacks = self.client.query_metric_stats(MetricType.Gauge, buckets=1, tags=create_tags_filter(units='bytes', env='unittest'), percentiles=create_percentiles_filter(90.0, 99.0), stacked='true')
+        self.assertEqual(2.4, stacks[0]['min'], stacks)
+        self.assertEqual(15.45, stacks[0]['max'], stacks)
+
     def test_tenant_changing(self):
         self.client.create_metric_definition(MetricType.Availability, 'test.tenant.avail.1')
         # Fetch metrics and check that it did appear
