@@ -18,7 +18,7 @@ with open(path.join(here, 'README.rst')) as f:
 
     
 setup(name='hawkular-client',
-      version='0.5.4',
+      version='0.5.5',
       description='Python client to communicate with Hawkular server over HTTP(S)',
       author='Michael Burman',
       author_email='miburman@redhat.com',
